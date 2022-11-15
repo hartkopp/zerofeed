@@ -9,7 +9,7 @@
 # intended to be executed on an OpenWrt router (install curl & jq packages).
 # Use at your own risk! Especially I don't know if the inverter is fit for
 # this purpose as all this functionality was reverse engineered by the
-# fabulous OpenDTU developers. I simply rely on their work here.
+# fabulous OpenDTU developers. I simply rely on their amazing work here.
 
 # Author: Oliver Hartkopp
 # License: MIT
@@ -27,11 +27,15 @@ SMPWR=0
 # Current Solar Power (unsigned value)
 SOLPWR=0
 
-# Absolute Solar Limit (unsigned value) -> SMPWR + SOLPWR + ABSLIMITOFFSET
+# Absolute Solar Limit (unsigned value)
+# -> SMPWR + SOLPWR + ABSLIMITOFFSET
 SOLABSLIMIT=0
 
 # reduce safety margin from inverter by increasing this value
 ABSLIMITOFFSET=50
+
+# threshold to trigger the LASTLIMIT increase
+SMPWRTHRES=80
 
 # SmartMeter IP (Tasmota) (update for your local network setup)
 SMIP=192.168.60.7
@@ -49,7 +53,7 @@ DTUSN=116180400144
 DTUNOLIMRELVAL=100
 DTULIMREL=0
 
-# minimum solar power (Watt) bevor starting the power control
+# minimum solar power (Watt) before starting the power control
 SOLMINPWR=100
 
 # limit type absolute (non persistent)
@@ -84,6 +88,7 @@ getDTULIMREL()
     fi
 }
 
+# get current power via 'status 8' from Tasmota (for LK13BE smart meter)
 getSMPWR()
 {
     SMPWR=`curl -s http://$SMIP/cm?cmnd=status%208 | jq '.StatusSNS.LK13BE.Power_curr'`
@@ -150,7 +155,8 @@ do
 
     done
 
-    LASTLIMIT=0
+    # start from the top
+    LASTLIMIT=$DTUMAXPWR
 
     # main control loop
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] ; do
@@ -160,15 +166,23 @@ do
 	echo "SMPWR="$SMPWR
 	echo "ABSLIMITOFFSET="$ABSLIMITOFFSET
 
-	# calculate inverter limit
-	SOLABSLIMIT=$(($SMPWR + $SOLPWR + $ABSLIMITOFFSET))
-	echo "SOLABSLIMIT="$SOLABSLIMIT
+	if [ "$SMPWR" -lt 0 ]; then
+	    # calculate inverter limit to stop feeding into public network
+	    SOLABSLIMIT=$(($SMPWR + $SOLPWR + $ABSLIMITOFFSET))
+	    echo "set SOLABSLIMIT="$SOLABSLIMIT
+	elif [ "$SMPWR" -gt "$SMPWRTHRES" ]; then
+	    # if we had a relevant LASTLIMIT: safely increase it by SMPWR
+	    # if we touch DTUMAXPWR we are corrected in the next if statement
+	    SOLABSLIMIT=$(($SMPWR + $LASTLIMIT))
+	    echo "update SOLABSLIMIT="$SOLABSLIMIT
+	fi
 
 	# do not set limits beyond the inverter capabilities
 	if [ "$SOLABSLIMIT" -gt "$DTUMAXPWR" ]; then
 	    SOLABSLIMIT=$DTUMAXPWR
 	    echo Limit cropped to $DTUMAXPWR
 	fi
+
 	if [ "$SOLABSLIMIT" -ne "$LASTLIMIT" ]; then
 	    curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}'
 	    echo
