@@ -46,4 +46,4 @@ Additionally there are some values to tweak the power control process:
 - minimum solar power (Watt) before starting the power control<br />
 `SOLMINPWR=100`
 
-These values are estimations the work fine in my environment.
+These values are estimations and work fine in my environment.
