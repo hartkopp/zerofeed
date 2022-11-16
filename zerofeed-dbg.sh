@@ -116,9 +116,11 @@ do
     getSOLPWR;
     getDTUMAXPWR;
     getSMPWR;
+    getDTULIMREL;
     echo "initSOLPWR="$SOLPWR
     echo "initDTUMAXPWR="$DTUMAXPWR
     echo "initSMPWR="$SMPWR
+    echo "initDTULIMREL="$DTULIMREL
 
     # wait until curl succeeds
     while [ -z "$SOLPWR" ] || [ -z "$DTUMAXPWR" ] || [ -z "$SMPWR" ]; do

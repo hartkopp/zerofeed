@@ -115,6 +115,7 @@ do
     getSOLPWR;
     getDTUMAXPWR;
     getSMPWR;
+    getDTULIMREL;
 
     # wait until curl succeeds
     while [ -z "$SOLPWR" ] || [ -z "$DTUMAXPWR" ] || [ -z "$SMPWR" ]; do
