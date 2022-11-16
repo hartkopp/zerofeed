@@ -7,7 +7,7 @@
 
 # Needs OpenDTU and the Tasmota smart meter IoT devices in your WLAN and is
 # intended to be executed on an OpenWrt router (install curl & jq packages).
-# Use at your own risk! Especially I don't know if the inverter is fit for
+# USE AT YOUR OWN RISK! Especially I don't know if the inverter is fit for
 # this purpose as all this functionality was reverse engineered by the
 # fabulous OpenDTU developers. I simply rely on their amazing work here.
 
