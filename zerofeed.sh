@@ -160,8 +160,8 @@ do
     fi
 
     if [ "$SETSTATUS" != "\"Ok\"" ]; then
-	# setting the limit failed -> restart process
 	echo setting the rel limit failed
+	# setting the limit failed -> restart process
 	SMPWR=""
     fi
 
@@ -200,8 +200,8 @@ do
 	fi
 
 	if [ "$SETSTATUS" != "\"Ok\"" ]; then
-	    # setting the limit failed -> restart process
 	    echo setting the abs limit failed
+	    # setting the limit failed -> restart process
 	    break
 	fi
 
