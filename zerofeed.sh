@@ -154,8 +154,8 @@ do
     fi
     if [ "$DTULIMREL" -ne "$DTUNOLIMRELVAL" ]; then
 	# not 100% ? -> set to 100%
-	curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTRELNP', "limit_value":'$DTUNOLIMRELVAL'}'
-	echo
+	SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTRELNP', "limit_value":'$DTUNOLIMRELVAL'}' 2>/dev/null | jq '.type'`
+	echo "SETLIM="$SETLIM
 	getLimitSetStatus;
     fi
 
@@ -194,8 +194,8 @@ do
 	fi
 
 	if [ "$SOLABSLIMIT" -ne "$LASTLIMIT" ]; then
-	    curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}'
-	    echo
+	    SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}' 2>/dev/null | jq '.type'`
+	    echo "SETLIM="$SETLIM
 	    getLimitSetStatus;
 	fi
 
