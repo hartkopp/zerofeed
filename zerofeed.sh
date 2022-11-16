@@ -109,30 +109,29 @@ getLimitSetStatus()
     done
 }
 
-while [ true ];
-do
+while [ true ]; do
 
-    getSOLPWR;
-    getDTUMAXPWR;
-    getSMPWR;
-    getDTULIMREL;
+    getSOLPWR
+    getDTUMAXPWR
+    getSMPWR
+    getDTULIMREL
 
     # wait until curl succeeds
     while [ -z "$SOLPWR" ] || [ -z "$DTUMAXPWR" ] || [ -z "$SMPWR" ]; do
 
 	sleep 2
-	getSOLPWR;
-	getDTUMAXPWR;
-	getSMPWR;
+	getSOLPWR
+	getDTUMAXPWR
+	getSMPWR
 
     done
 
     # wait for at least some remarkable solar power (SOLMINPWR)
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] && [ "$SOLPWR" -lt "$SOLMINPWR" ]; do
 
-	sleep 10;
-	getSOLPWR;
-	getSMPWR;
+	sleep 10
+	getSOLPWR
+	getSMPWR
 
     done
 
@@ -140,7 +139,7 @@ do
     SETSTATUS="\"Ok\""
 
     # check if we need to remove the limiter
-    getDTULIMREL;
+    getDTULIMREL
     if [ -z "$DTULIMREL" ]; then
 	# no data -> restart process
 	continue
@@ -148,7 +147,7 @@ do
     if [ "$DTULIMREL" -ne "$DTUNOLIMRELVAL" ]; then
 	# not 100% ? -> set to 100%
 	SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTRELNP', "limit_value":'$DTUNOLIMRELVAL'}' 2>/dev/null | jq '.type'`
-	getLimitSetStatus;
+	getLimitSetStatus
     fi
 
     if [ "$SETSTATUS" != "\"Ok\"" ]; then
@@ -160,7 +159,7 @@ do
     LASTLIMIT=$DTUMAXPWR
 
     # main control loop
-    while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] ; do
+    while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ]; do
 
 
 	if [ "$SMPWR" -lt 0 ]; then
@@ -179,7 +178,7 @@ do
 
 	if [ "$SOLABSLIMIT" -ne "$LASTLIMIT" ]; then
 	    SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}' 2>/dev/null | jq '.type'`
-	    getLimitSetStatus;
+	    getLimitSetStatus
 	fi
 
 	if [ "$SETSTATUS" != "\"Ok\"" ]; then
@@ -189,9 +188,9 @@ do
 
 	LASTLIMIT=$SOLABSLIMIT
 
-	sleep 5;
-	getSOLPWR;
-	getSMPWR;
+	sleep 5
+	getSOLPWR
+	getSMPWR
 
 	# restart whole process
 	if [ "$SOLPWR" -eq 0 ]; then
