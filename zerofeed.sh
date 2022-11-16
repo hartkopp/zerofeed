@@ -98,14 +98,15 @@ getSMPWR()
     fi
 }
 
-waitLimitSetStatusOK()
+getLimitSetStatus()
 {
-    SETSTATUS="no_set_status"
+    SETSTATUS="\"Pending\""
 
-    while [ "$SETSTATUS" != "\"Ok\"" ]; do
+    while [ "$SETSTATUS" == "\"Pending\"" ]; do
 	sleep 1
 	SETSTATUS=`curl -s http://$DTUIP/api/limit/status | jq '."'$DTUSN'".limit_set_status'`
-	echo $SETSTATUS
+	# SETSTATUS can be "Ok" or "Pending" or "Failure"
+	echo "SETSTATUS="$SETSTATUS
     done
 }
 
@@ -141,6 +142,9 @@ do
 
     done
 
+    # set OK value if we do not need to set the relative limit
+    SETSTATUS="\"Ok\""
+
     # check if we need to remove the limiter
     getDTULIMREL;
     echo "DTULIMREL="$DTULIMREL
@@ -152,7 +156,13 @@ do
 	# not 100% ? -> set to 100%
 	curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTRELNP', "limit_value":'$DTUNOLIMRELVAL'}'
 	echo
-	waitLimitSetStatusOK;
+	getLimitSetStatus;
+    fi
+
+    if [ "$SETSTATUS" != "\"Ok\"" ]; then
+	# setting the limit failed -> restart process
+	echo setting the rel limit failed
+	SMPWR=""
     fi
 
     # start from the top
@@ -186,8 +196,15 @@ do
 	if [ "$SOLABSLIMIT" -ne "$LASTLIMIT" ]; then
 	    curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}'
 	    echo
-	    waitLimitSetStatusOK;
+	    getLimitSetStatus;
 	fi
+
+	if [ "$SETSTATUS" != "\"Ok\"" ]; then
+	    # setting the limit failed -> restart process
+	    echo setting the abs limit failed
+	    break
+	fi
+
 	LASTLIMIT=$SOLABSLIMIT
 
 	sleep 5;
