@@ -130,6 +130,17 @@ do
 
     done
 
+    # wait for at least some remarkable solar power (SOLMINPWR)
+    while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] && [ "$SOLPWR" -lt "$SOLMINPWR" ]; do
+
+	echo "Wait for "$SOLMINPWR"W solar power"
+	echo "SOLPWR="$SOLPWR
+	sleep 10;
+	getSOLPWR;
+	getSMPWR;
+
+    done
+
     # check if we need to remove the limiter
     getDTULIMREL;
     echo "DTULIMREL="$DTULIMREL
@@ -143,17 +154,6 @@ do
 	echo
 	waitLimitSetStatusOK;
     fi
-
-    # wait for at least some remarkable solar power (SOLMINPWR)
-    while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] && [ "$SOLPWR" -lt "$SOLMINPWR" ]; do
-
-	echo "Wait for "$SOLMINPWR"W solar power"
-	echo "SOLPWR="$SOLPWR
-	sleep 10;
-	getSOLPWR;
-	getSMPWR;
-
-    done
 
     # start from the top
     LASTLIMIT=$DTUMAXPWR
