@@ -23,27 +23,27 @@ Create the 'release' script file without debug output with:
 
 The script has several options to be adapted to your environment:
 
-SmartMeter IP (Tasmota) (update for your local network setup)
-SMIP=192.168.60.7
+- SmartMeter IP (Tasmota) (update for your local network setup)<br />
+`SMIP=192.168.60.7`
 
-DTU IP (OpenDTU) (update for your local network setup)
-DTUIP=192.168.60.5
+- DTU IP (OpenDTU) (update for your local network setup)<br />
+`DTUIP=192.168.60.5`
 
-DTU default admin user access (from OpenDTU installation)
-DTUUSER="admin:openDTU42"
+- DTU default admin user access (from OpenDTU installation)<br />
+`DTUUSER="admin:openDTU42"`
 
-DTU serial number (insert your inverter SN here)
-DTUSN=116180400144
+- DTU serial number (insert your inverter SN here)<br />
+`DTUSN=116180400144`
 
 Additionally there are some values to tweak the power control process:
 
-reduce safety margin from inverter by increasing this value
-ABSLIMITOFFSET=50
+- reduce safety margin from inverter by increasing this value<br />
+`ABSLIMITOFFSET=50`
 
-threshold to trigger the LASTLIMIT increase
-SMPWRTHRES=80
+- threshold to trigger the LASTLIMIT increase<br />
+`SMPWRTHRES=80`
 
-minimum solar power (Watt) before starting the power control
-SOLMINPWR=100
+- minimum solar power (Watt) before starting the power control<br />
+`SOLMINPWR=100`
 
 These values are estimations the work fine in my environment.
