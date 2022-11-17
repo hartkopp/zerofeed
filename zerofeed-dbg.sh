@@ -34,7 +34,7 @@ SOLABSLIMIT=0
 # reduce safety margin from inverter by increasing this value
 ABSLIMITOFFSET=50
 
-# threshold to trigger the LASTLIMIT increase
+# SMPWR threshold to trigger the SOLLASTLIMIT increase
 SMPWRTHRES=80
 
 # SmartMeter IP (Tasmota) (update for your local network setup)
@@ -110,6 +110,7 @@ getLimitSetStatus()
     done
 }
 
+# run initialization and solar power control forever
 while [ true ]; do
 
     getSOLPWR
@@ -162,14 +163,15 @@ while [ true ]; do
 	getLimitSetStatus
     fi
 
+    # SETSTATUS can be "Ok" or "Failure" here
     if [ "$SETSTATUS" != "\"Ok\"" ]; then
 	echo setting the rel limit failed
-	# setting the limit failed -> restart process
+	# setting the limit failed -> restart process (skip main control loop)
 	SMPWR=""
     fi
 
     # start from the top
-    LASTLIMIT=$DTUMAXPWR
+    SOLLASTLIMIT=$DTUMAXPWR
 
     # main control loop
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ]; do
@@ -184,31 +186,34 @@ while [ true ]; do
 	    SOLABSLIMIT=$(($SMPWR + $SOLPWR + $ABSLIMITOFFSET))
 	    echo "set SOLABSLIMIT="$SOLABSLIMIT
 	elif [ "$SMPWR" -gt "$SMPWRTHRES" ]; then
-	    # if we had a relevant LASTLIMIT: safely increase it by SMPWR
-	    # if we touch DTUMAXPWR we are corrected in the next if statement
-	    SOLABSLIMIT=$(($SMPWR + $LASTLIMIT))
+	    # the system power consumption is higher than our defined threshold
+	    # => safely increase the current SOLLASTLIMIT by SMPWR
+	    #    until DTUMAXPWR is reached (see following if-statement)
+	    SOLABSLIMIT=$(($SMPWR + $SOLLASTLIMIT))
 	    echo "update SOLABSLIMIT="$SOLABSLIMIT
 	fi
 
 	# do not set limits beyond the inverter capabilities
 	if [ "$SOLABSLIMIT" -gt "$DTUMAXPWR" ]; then
+	    echo Calculated limit $SOLABSLIMIT cropped to $DTUMAXPWR
 	    SOLABSLIMIT=$DTUMAXPWR
-	    echo Limit cropped to $DTUMAXPWR
 	fi
 
-	if [ "$SOLABSLIMIT" -ne "$LASTLIMIT" ]; then
+	# only set the limit when the value was changed
+	if [ "$SOLABSLIMIT" -ne "$SOLLASTLIMIT" ]; then
 	    SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}' 2>/dev/null | jq '.type'`
 	    echo "SETLIM="$SETLIM
 	    getLimitSetStatus
 	fi
 
+	# SETSTATUS can be "Ok" or "Failure" here
 	if [ "$SETSTATUS" != "\"Ok\"" ]; then
 	    echo setting the abs limit failed
 	    # setting the limit failed -> restart process
 	    break
 	fi
 
-	LASTLIMIT=$SOLABSLIMIT
+	SOLLASTLIMIT=$SOLABSLIMIT
 
 	sleep 5
 	getSOLPWR
