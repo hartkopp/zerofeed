@@ -124,6 +124,7 @@ while [ true ]; do
     # wait until curl succeeds
     while [ -z "$SOLPWR" ] || [ -z "$DTUMAXPWR" ] || [ -z "$SMPWR" ]; do
 
+	echo `date +#\ %d.%m.%y\ %T`
 	echo "Wait for devices"
 	sleep 2
 	getSOLPWR
@@ -135,6 +136,7 @@ while [ true ]; do
     # wait for at least some remarkable solar power (SOLMINPWR)
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] && [ "$SOLPWR" -lt "$SOLMINPWR" ]; do
 
+	echo `date +#\ %d.%m.%y\ %T`
 	echo "Wait for "$SOLMINPWR"W solar power"
 	echo "SOLPWR="$SOLPWR
 	sleep 10
@@ -172,7 +174,7 @@ while [ true ]; do
     # main control loop
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ]; do
 
-	echo
+	echo `date +#\ %d.%m.%y\ %T`
 	echo "SOLPWR="$SOLPWR
 	echo "SMPWR="$SMPWR
 	echo "ABSLIMITOFFSET="$ABSLIMITOFFSET
