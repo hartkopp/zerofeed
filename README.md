@@ -69,7 +69,7 @@ zero the inverter is completely shut down and not accessible!
 ### Initializing/disabling the solar power limiter
 
 When the inverter is up and running the limit is disabled (set to 100%).
-Usually the persitent power limit value is always 100% at power on time until
+Usually the persistent power limit value is always 100% at power on time until
 someone modified this value (with persistence). This script only applies
 non-persistent power limitations to the inverter.
 
@@ -90,7 +90,7 @@ We mainly have two triggers to start a power limit control action:
 Set the power limit for the solar panels to `SMPWR` + `SOLPWR`. As `SMPWR` is
 negative the calculated limit is less than the current solar power output
 `SOLPWR` and should lead to a `SMPWR` value greater then zero.<br />
-As the inverter might be conservative and cautious with the limit the
+As the inverter might be conservative and too cautious with the limit the
 `ABSLIMITOFFSET` value was introduced to increase the calculated limit.
 The `ABSLIMITOFFSET` probably needs to be adjusted in your setup.
 
@@ -102,6 +102,6 @@ solar power limit can be safely increased by the `SMPWR` value to get
 `SMPWR` back into the threshold window.<br />
 When the solar power output `SOLPWR` is continously less than the current
 solar power limit (and the `SMPWR` value therefore becomes greater than
-`SMPWRTHRES`) this algorithm will increase the solor power limit up to
+`SMPWRTHRES`) this algorithm will increase the solar power limit up to
 100% where it remains until `SMPWR` becomes negative again to restart the
 power limit control process.
