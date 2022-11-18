@@ -183,6 +183,8 @@ while [ true ]; do
 	echo "SOLLASTLIMIT="$SOLLASTLIMIT
 	echo "ABSLIMITOFFSET="$ABSLIMITOFFSET
 
+	#ocho `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLLASTLIMIT","$ABSLIMITOFFSET > /tmp/zerofeed
+
 	if [ "$SMPWR" -lt 0 ]; then
 	    # calculate inverter limit to stop feeding into public network
 	    SOLABSLIMIT=$(($SMPWR + $SOLPWR + $ABSLIMITOFFSET))
