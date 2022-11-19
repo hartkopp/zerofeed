@@ -139,7 +139,7 @@ while [ true ]; do
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] && [ "$SOLPWR" -lt "$SOLMINPWR" ]; do
 
 	echo `date +#P\ %d.%m.%y\ %T`
-	echo "Wait for "$SOLMINPWR"W solar power"
+	echo "Wait for "$SOLMINPWR"W solar power (DTU max power is "$DTUMAXPWR"W)"
 	echo "SOLPWR="$SOLPWR
 	sleep 10
 	getSOLPWR
