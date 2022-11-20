@@ -32,10 +32,11 @@ SOLPWR=0
 SOLABSLIMIT=0
 
 # reduce safety margin from inverter by increasing this value
-ABSLIMITOFFSET=50
+ABSLIMITOFFSET=0
 
 # SMPWR threshold to trigger the SOLLASTLIMIT increase
-SMPWRTHRES=80
+SMPWRTHRESMAX=50
+SMPWRTHRESMIN=10
 
 # SmartMeter IP (Tasmota) (update for your local network setup)
 SMIP=192.168.60.7
@@ -185,15 +186,26 @@ while [ true ]; do
 
 	#ocho `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLLASTLIMIT","$ABSLIMITOFFSET > /tmp/zerofeed
 
-	if [ "$SMPWR" -lt 0 ]; then
+	if [ "$SMPWR" -lt "$SMPWRTHRESMIN" ]; then
 	    # calculate inverter limit to stop feeding into public network
-	    SOLABSLIMIT=$(($SMPWR + $SOLPWR + $ABSLIMITOFFSET))
+	    SOLABSLIMIT=$(($SMPWR + $SOLPWR - $SMPWRTHRESMIN + $ABSLIMITOFFSET))
 	    echo "set SOLABSLIMIT="$SOLABSLIMIT
-	elif [ "$SMPWR" -gt "$SMPWRTHRES" ]; then
+	elif [ "$SMPWR" -gt "$SMPWRTHRESMAX" ]; then
 	    # the system power consumption is higher than our defined threshold
-	    # => safely increase the current SOLLASTLIMIT by SMPWR
-	    #    until DTUMAXPWR is reached (see following if-statement)
-	    SOLABSLIMIT=$(($SMPWR + $SOLLASTLIMIT))
+	    # => we could safely increase the current SOLLASTLIMIT by SMPWR
+	    #    until DTUMAXPWR is reached (see following if-statement).
+	    #    SOLABSLIMIT=$(($SMPWR + $SOLLASTLIMIT - $SMPWRTHRESMIN))
+	    #
+	    # As there was a weird oscillation observed with real SMPWR values
+	    # we make smaller steps with SMPWRTHRESMAX towards DTUMAXPWR instead.
+	    # When SMPWR is 'really big' we jump half of the SMPWR value.
+	    if [ "$SMPWR" -gt $((2 * $SMPWRTHRESMAX)) ]; then
+		PWRINCR=$(($SMPWR / 2))
+	    else
+		PWRINCR=$SMPWRTHRESMAX
+	    fi
+
+	    SOLABSLIMIT=$(($PWRINCR + $SOLLASTLIMIT - $SMPWRTHRESMIN))
 	    echo "update SOLABSLIMIT="$SOLABSLIMIT
 	fi
 
