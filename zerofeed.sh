@@ -165,8 +165,6 @@ while [ true ]; do
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ]; do
 
 
-	#ocho `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLLASTLIMIT","$ABSLIMITOFFSET > /tmp/zerofeed
-
 	if [ "$SMPWR" -lt "$SMPWRTHRESMIN" ]; then
 	    # calculate inverter limit to stop feeding into public network
 	    SOLABSLIMIT=$(($SMPWR + $SOLPWR - $SMPWRTHRESMIN + $ABSLIMITOFFSET))
@@ -204,6 +202,8 @@ while [ true ]; do
 	    # setting the limit failed -> restart process
 	    break
 	fi
+
+	# generate CSV capable status output
 
 	SOLLASTLIMIT=$SOLABSLIMIT
 
