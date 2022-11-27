@@ -46,10 +46,13 @@ The script has several options to be adapted to your environment:
 Additionally there are some values to tweak the power control process:
 
 - reduce safety margin from inverter by increasing this value<br />
-`ABSLIMITOFFSET=50`
+`ABSLIMITOFFSET=0`
 
-- threshold to trigger the LASTLIMIT increase<br />
-`SMPWRTHRES=80`
+- threshold to trigger the SOLABSLIMIT decrease<br />
+`SMPWRTHRESMIN=10`
+
+- threshold to trigger the SOLABSLIMIT increase<br />
+`SMPWRTHRESMAX=50`
 
 - minimum solar power (Watt) before starting the power control<br />
 `SOLMINPWR=100`
@@ -64,7 +67,9 @@ The script first waits for `SOLMINPWR` Watts before it starts to control
 the solar panel power output. This makes sure that the inverter is working
 and can process requests to the power limiter. The OpenDTU always answers
 requests to get the current solar power - but in the case the solar power is
-zero the inverter is completely shut down and not accessible!
+zero the inverter is completely shut down and not accessible!<br />
+When the inverter switches off and the `SOLPWR` value becomes zero (e.g. over
+night) the script gets back to this startup phase.
 
 ### Initializing/disabling the solar power limiter
 
@@ -84,24 +89,26 @@ house/flat consumes the `SMPWR` can become a negative value as the power
 meter measures your feeding into the public network - which we want to
 avoid with this script.
 
-We mainly have two triggers to start a power limit control action:
+We mainly have two triggers to start a power limit control action to maintain
+a low power consumption between `SMPWRTHRESMIN` and `SMPWRTHRESMAX`:<br />
 
-1. `SMPWR` is negative:<br />
-Set the power limit for the solar panels to `SMPWR` + `SOLPWR`. As `SMPWR` is
-negative the calculated limit is less than the current solar power output
-`SOLPWR` and should lead to a `SMPWR` value greater then zero.<br />
-As the inverter might be conservative and too cautious with the limit the
-`ABSLIMITOFFSET` value was introduced to increase the calculated limit.
-The `ABSLIMITOFFSET` probably needs to be adjusted in your setup.
+1. `SMPWR` is less than `SMPWRTHRESMIN`:<br />
+Concept: Set the power limit for the solar panels to `SMPWR` + `SOLPWR`.
+As `SMPWR` was assumed to be negative the calculated limit is less than the
+current solar power output `SOLPWR` and should lead to a `SMPWR` value greater
+then zero. This action is now triggered when `SMPWR` is less than
+`SMPWRTHRESMIN`, therefore the calulated limit results from:
+`SMPWR + SOLPWR - SMPWRTHRESMIN`. As the inverter might be conservative and
+too cautious with the limit the `ABSLIMITOFFSET` value was introduced to
+increase the calculated limit. The `ABSLIMITOFFSET` probably needs to be
+adjusted in your setup.
 
-2. `SMPWR` is greater than `SMPWRTHRES`:<br />
-The `SMPWRTHRES` threshold is used to reduce the power limit control commands
-to the OpenDTU and the inverter. In the best case the `SMPWR` value remains
-between zero and `SMPWRTHRES`. When `SMPWR` gets greater than `SMPWRTHRES` the
-solar power limit can be safely increased by the `SMPWR` value to get
-`SMPWR` back into the threshold window.<br />
-When the solar power output `SOLPWR` is continously less than the current
-solar power limit (and the `SMPWR` value therefore becomes greater than
-`SMPWRTHRES`) this algorithm will increase the solar power limit up to
-100% where it remains until `SMPWR` becomes negative again to restart the
-power limit control process.
+2. `SMPWR` is greater than `SMPWRTHRESMAX`:<br />
+The `SMPWRTHRES*` threshold values are used to reduce the power limit control
+commands to the OpenDTU and the inverter. In the best case the `SMPWR` value
+remains between `SMPWRTHRESMIN` and `SMPWRTHRESMAX`. When `SMPWR` gets
+greater than `SMPWRTHRESMAX` the solar power limit can be safely increased by
+`SMPWRTHRESMAX`. Depending on `SMPWR` we can increase the solar power limit
+faster to finally remove the solar power limit. When the solar power limit
+has been increased up to 100% it remains there until `SMPWR` becomes less than
+`SMPWRTHRESMIN` again to restart the power limit control process.
