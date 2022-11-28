@@ -1,6 +1,6 @@
 # zerofeed
 
-Zerofeed solar power control script for OpenDTU / Tasmota / OpenWrt
+Zerofeed solar power control shell script for OpenDTU / Tasmota / OpenWrt
 
 ## About
 
@@ -59,7 +59,37 @@ Additionally there are some values to tweak the power control process:
 
 These values are estimations and work fine in my environment.
 
-## Functionality
+## Power control functionality
+
+The following pictures were rendered (with LibreOffice Calc) from debug
+values during the development phase for understanding the general concept
+of the zerofeed script. The adapted values and the algorithm have been
+improved after getting the raw values for these figures.
+
+* `SOLPWR` = blue (solar power yield)
+* `SMPWR` = red (smart meter power consumption from house/flat)
+* `SOLLASTLIMIT` = yellow (solar limit)
+
+### Power control example (more solar power than consumption)
+
+This picture shows a day with good solar power (SOLPWR) yield which has to be
+limited to the house/flat power consumption (SMPWR). E.g. from 13:00 - 15:00
+the solar panels are limited. At 15:30 a relevant power consumer is attached
+with sets the SOLLASTLIMT value to DTUMAXPWR (disabled limit).
+
+<img src="https://github.com/hartkopp/zerofeed/blob/main/img/high-solar-yield.png" width="800">
+
+### Power control example (low solar power mostly unlimited)
+
+This picture shows a day with low solar power (SOLPWR) yield where the
+house/flat power consumption (SMPWR) is mostly higher than the solar yield
+and therefore the SOLLASTLIMT value is set to DTUMAXPWR (disabled limit) for
+most of the time. From 15:00 to 15:30 the solar power exceeds the SMPWR value
+and the limiter gets enabled to not feed the public network.
+
+<img src="https://github.com/hartkopp/zerofeed/blob/main/img/low-solar-yield.png" width="800">
+
+## Power control algorithm
 
 ### Inverter startup phase
 
