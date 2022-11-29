@@ -134,6 +134,7 @@ while [ true ]; do
 	sleep 10
 	getSOLPWR
 	getSMPWR
+	#cho `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX > /var/run/zerofeed.state
 
     done
 
@@ -204,6 +205,7 @@ while [ true ]; do
 	fi
 
 	# generate CSV capable status output
+	#cho `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX > /var/run/zerofeed.state
 
 	SOLLASTLIMIT=$SOLABSLIMIT
 
