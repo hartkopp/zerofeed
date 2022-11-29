@@ -1,0 +1,28 @@
+#!/bin/sh /etc/rc.common
+# OpenWrt script to start/stop the zerofeed.sh script
+# Following https://openwrt.org/docs/techref/initscripts
+# Copyright (C) 2022 Oliver Hartkopp / OpenWrt Team
+
+START=95
+STOP=15
+
+ZEROFEED=/usr/bin/zerofeed.sh
+ZEROFEED_PID=/var/run/zerofeed.pid
+
+start() {
+	rm -f $ZEROFEED_PID
+	if [ -x $ZEROFEED ]; then
+		$ZEROFEED &
+		echo $! > $ZEROFEED_PID
+	fi
+}
+
+stop() {
+	if [ -f $ZEROFEED_PID ]; then
+		PID=`cat $ZEROFEED_PID`
+		if [ -n "$PID" ]; then
+			kill -KILL $PID
+		fi
+		rm -f $ZEROFEED_PID
+	fi
+}
