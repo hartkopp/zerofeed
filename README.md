@@ -23,6 +23,7 @@ during the development. The script `zerofeed.sh` should be completely silent
 to not bloat any logfiles. `zerofeed-dbg.sh` is the main source code.
 
 Create the 'release' script file without debug output with:
+
 `grep -v echo zerofeed-dbg.h > zerofeed.sh`
 
 ## Configuration
@@ -40,6 +41,60 @@ The script has several options to be adapted to your environment:
 
 - DTU serial number (insert your inverter SN here)<br />
 `DTUSN=116180400144`
+
+## Installation
+
+The script can be executed without any installation on any Linux system,
+e.g. a Linux laptop, Raspberry Pi, OpenWrt or even on WSL2. It might also
+run on Windows (when `bash`, `curl` and `jq` are installed), but this was
+never tested. To reduce the power consumption and hardware effort the script
+is intended to run on an OpenWrt router, which is powered anyway and can
+handle this task easily.
+
+To run and automatically start the `zerofeed.sh` script on your OpenWrt
+router a start/stop script `zerofeed` for OpenWrt 22.03 has been created
+which can be found in the `openwrt` directory of this repository.
+
+The installation process:
+
+1. Copy the `zerofeed` script to `/etc/init.d/zerofeed` on the router
+2. Make sure the script is executable: `chmod 755 /etc/init.d/zerofeed`
+3. Copy `zerofeed.sh` script to `/usr/bin/zerofeed.sh` on the router
+4. Make sure the script is executable: `chmod 755 /usr/bin/zerofeed.sh`
+5. Enable the script with: `/etc/init.d/zerofeed enable`
+
+If you want to see the latest state in `/var/run/zerofeed.state` rename
+the two '#cho' statements in the `zerofeed.sh` script to 'echo'.
+
+E.g. with
+
+`sed -i 's/\#cho/echo/g' /usr/bin/zerofeed.sh`
+
+To check if everything works as expected start the zerofeed process with
+
+`/etc/init.d/zerofeed start`
+
+Check with `ps` whether the script is running:
+
+```
+root@OpenWrt:~# ps | grep zerofeed
+ 5175 root      1324 S    {zerofeed.sh} /bin/sh /usr/bin/zerofeed.sh
+ 5410 root      1308 S    grep zerofeed
+```
+
+The process id and the latest state can be seen in `/var/run`:
+
+```
+root@OpenWrt:~# ls -l /var/run/zerofeed.*
+-rw-r--r--    1 root  root       5 Nov 29 22:41 /var/run/zerofeed.pid
+-rw-r--r--    1 root  root      35 Nov 30 08:20 /var/run/zerofeed.state
+root@OpenWrt:~# cat /var/run/zerofeed.pid
+5175
+root@OpenWrt:~# cat /var/run/zerofeed.state
+30.11.22,08:22:19,0,302,0,,0,10,50
+```
+
+The meaning of the `zerofeed.state` content can be seen in the code.
 
 ## Adaption
 
