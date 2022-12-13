@@ -103,7 +103,7 @@ getLimitSetStatus()
 {
     SETSTATUS="\"Pending\""
 
-    while [ "$SETSTATUS" == "\"Pending\"" ]; do
+    while [ "$SETSTATUS" = "\"Pending\"" ]; do
 	sleep 1
 	SETSTATUS=`curl -s http://$DTUIP/api/limit/status | jq '."'$DTUSN'".limit_set_status'`
 	# SETSTATUS can be "Ok" or "Pending" or "Failure"
