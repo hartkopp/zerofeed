@@ -2,6 +2,10 @@
 
 Zerofeed solar power control shell script for OpenDTU / Tasmota / OpenWrt
 
+- https://github.com/tbnobody/OpenDTU
+- https://github.com/tasmota
+- https://openwrt.org/
+
 ## About
 
 Zero feed script to make sure the solar modules are reducing their output
@@ -41,6 +45,59 @@ The script has several options to be adapted to your environment:
 
 - DTU serial number (insert your inverter SN here)<br />
 `DTUSN=116180400144`
+
+- SmartMeter type adaption:
+
+The code is tested with a Logarex LK13BE (SML) smart meter<br />
+https://tasmota.github.io/docs/Smart-Meter-Interface/#logarex-lk13be-sml-eg-lk13be6067x9<br />
+which provides the current house/flat power consumption (in Watt) with a
+LK13BE specific Web-API answer that has to be adapted in the `getSMPWR()`
+function when a different smart meter is used!
+
+Then the `jq` command with `'.StatusSNS.LK13BE.Power_curr'` has to be changed.
+
+In the current LK13BE environment the full `jq` output looks like this:
+
+```
+$ curl -s http://192.168.60.7/cm?cmnd=status%208 | jq
+{
+  "StatusSNS": {
+    "Time": "2022-12-19T08:56:05",
+    "LK13BE": {
+      "Power_total_in": 1914.7,
+      "Power_total_out": 0.6,
+      "Power_curr": 509,
+      "Power_L1_curr": 69,
+      "Power_L2_curr": 77,
+      "Power_L3_curr": 362,
+      "Volt_L1_curr": 226.5,
+      "Volt_L2_curr": 226.3,
+      "Volt_L3_curr": 225.6,
+      "Amperage_L1_curr": 0.6,
+      "Amperage_L2_curr": 0.77,
+      "Amperage_L3_curr": 2.06,
+      "HZ": 50,
+      "phase_angle_p1": 304.1,
+      "phase_angle_p2": 298.5,
+      "phase_angle_p3": 327.3,
+      "phase_angle_l2_l1": 239.8,
+      "phase_angle_l3_l1": 120.2
+    }
+  }
+}
+```
+
+Which makes the code in `getSMPWR()` produce the power consumption value:
+
+```
+$ curl -s http://192.168.60.7/cm?cmnd=status%208 | jq '.StatusSNS.LK13BE.Power_curr'
+509
+```
+
+Please check your smart meter with the full `jq` output and find the needed
+power consumption in the JSON tree to get the correct string for your smart
+meter for the power value (analogue to the '.StatusSNS.LK13BE.Power_curr'
+example) - and update this string in `getSMPWR()` for your local setup.
 
 ## Installation
 
