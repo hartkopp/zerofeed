@@ -62,6 +62,10 @@ LTABSNP=0
 # limit type relative (non persistent)
 LTRELNP=1
 
+# poll interval
+POLLNORMAL=5
+POLLFAST=5
+
 getSOLPWR()
 {
     SOLPWR=`curl -s http://$DTUIP/api/livedata/status | jq '.total.Power.v'`
@@ -189,6 +193,8 @@ while [ true ]; do
     # main control loop
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ]; do
 
+	MAINSLEEP=$POLLNORMAL
+
 	echo `date +#C\ %d.%m.%y\ %T`
 	echo "SOLPWR="$SOLPWR
 	echo "SMPWR="$SMPWR
@@ -229,6 +235,7 @@ while [ true ]; do
 	    SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}' 2>/dev/null | jq '.type'`
 	    echo "SETLIM="$SETLIM
 	    getLimitSetStatus
+	    MAINSLEEP=$POLLFAST
 	fi
 
 	# SETSTATUS can be "Ok" or "Failure" here
@@ -244,7 +251,7 @@ while [ true ]; do
 
 	SOLLASTLIMIT=$SOLABSLIMIT
 
-	sleep 5
+	sleep $MAINSLEEP
 	getSOLPWR
 	getSMPWR
 
