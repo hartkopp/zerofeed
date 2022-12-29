@@ -125,13 +125,12 @@ while [ true ]; do
     echo "initDTULIMREL="$DTULIMREL
 
     # wait until curl succeeds
-    while [ -z "$SOLPWR" ] || [ -z "$DTUMAXPWR" ] || [ -z "$SMPWR" ]; do
+    while [ -z "$SOLPWR" ] || [ -z "$SMPWR" ]; do
 
 	echo `date +#W\ %d.%m.%y\ %T`
 	echo "Wait for devices"
 	sleep 2
 	getSOLPWR
-	getDTUMAXPWR
 	getSMPWR
 
     done
@@ -149,8 +148,15 @@ while [ true ]; do
 
     done
 
-    # set OK value if we do not need to set the relative limit
-    SETSTATUS="\"Ok\""
+    # at this point the inverter is properly powered up
+
+    # get maximum power of inverter
+    getDTUMAXPWR
+    echo "DTUMAXPWR="$DTUMAXPWR
+    if [ -z "$DTUMAXPWR" ]; then
+	# no data -> restart process
+	continue
+    fi
 
     # check if we need to remove the limiter
     getDTULIMREL
@@ -159,6 +165,10 @@ while [ true ]; do
 	# no data -> restart process
 	continue
     fi
+
+    # set OK value if we do not need to set the relative limit
+    SETSTATUS="\"Ok\""
+
     if [ "$DTULIMREL" -ne "$DTUNOLIMRELVAL" ]; then
 	# not 100% ? -> set to 100%
 	SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'$DTUSN'", "limit_type":'$LTRELNP', "limit_value":'$DTUNOLIMRELVAL'}' 2>/dev/null | jq '.type'`
