@@ -256,7 +256,9 @@ while [ true ]; do
 	getSMPWR
 
 	# restart whole process
-	if [ "$SOLPWR" -eq 0 ]; then
+	if [ "$SOLPWR" -eq 0 ] || [ "$DTUMAXPWR" -eq 0 ]; then
+	    unset SOLPWR
+	    unset DTUMAXPWR
 	    break
 	fi
 
