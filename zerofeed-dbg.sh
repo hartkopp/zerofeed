@@ -68,7 +68,8 @@ POLLFAST=5
 
 getSOLPWR()
 {
-    SOLPWR=`curl -s http://$DTUIP/api/livedata/status | jq '.total.Power.v'`
+    # get power from the single selected inverter
+    SOLPWR=`curl -s http://$DTUIP/api/livedata/status | jq '.inverters[] | select(.serial == "'$DTUSN'").AC."0".Power.v'`
     if [ -n "$SOLPWR" ]; then
 	# remove fraction to make it an integer
 	SOLPWR=${SOLPWR%.*}
