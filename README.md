@@ -166,8 +166,9 @@ Additionally there are some values to tweak the power control process:
 - threshold to trigger the SOLABSLIMIT increase<br />
 `SMPWRTHRESMAX=50`
 
-- minimum solar power (Watt) before starting the power control<br />
-`SOLMINPWR=100`
+- the minimum solar power (Watt) before starting the power control is now<br />
+calculated based on the provided `DTUMAXPWR` value from the inverter:<br />
+`SOLMINPWR = (3% from DTUMAXPWR) + 10 Watt`
 
 These values are estimations and work fine in my environment.
 
