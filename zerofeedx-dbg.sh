@@ -257,7 +257,7 @@ while [ true ]; do
 	echo "SOLPWR="$SOLPWR
 	echo "SMPWR="$SMPWR
 	echo "SOLLASTLIMIT="$SOLLASTLIMIT
-	echo "SOLABSIMIT="$SOLABSLIMIT
+	echo "SOLABSLIMIT="$SOLABSLIMIT
 	echo "ABSLIMITOFFSET="$ABSLIMITOFFSET
 
 	if [ "$SMPWR" -lt "$SMPWRTHRESMIN" ]; then
@@ -296,7 +296,7 @@ while [ true ]; do
 	fi
 
 	# when we moved far away from SOLPOWER -> hop to the maximum
-	if [ "$(($SOLABSLIMIT - $SOLPWR))" -gt "200" ]; then
+	if [ "$(($SOLABSLIMIT - $SOLPWR))" -gt "200" ] && [ "$(($SOLABSLIMIT - $SOLLASTLIMIT))" -lt "150" ]; then
 	    echo Fast hop of inverter $CURRDTU to ${DTUMAXP[$CURRDTU]}
 	    SOLABSLIMIT=${DTUMAXP[$CURRDTU]}
 	fi
