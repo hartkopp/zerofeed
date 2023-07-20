@@ -292,6 +292,12 @@ while [ true ]; do
 	    SOLABSLIMIT=${DTUMINP[$CURRDTU]}
 	fi
 
+	# when we moved far away from SOLPOWER -> hop to the maximum
+	if [ "$(($SOLABSLIMIT - $SOLPWR))" -gt "200" ]; then
+	    echo Fast hop of inverter $CURRDTU to ${DTUMAXP[$CURRDTU]}
+	    SOLABSLIMIT=${DTUMAXP[$CURRDTU]}
+	fi
+
 	# only set the limit when the value was changed
 	if [ "$SOLABSLIMIT" -ne "$SOLLASTLIMIT" ]; then
 	    SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'${DTUSN[$CURRDTU]}'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}' 2>/dev/null | jq '.type'`
@@ -316,13 +322,15 @@ while [ true ]; do
 	# check for inverter change
 	if [ "$SOLABSLIMIT" -eq "${DTUMINP[$CURRDTU]}" ] && [ "$CURRDTU" -gt "0" ]
 	then
-	    echo step down from inverter $CURRDTU
+	    echo -n "step down from inverter "$CURRDTU
 	    ((CURRDTU-=1))
+	    echo " to inverter "$CURRDTU
 	    SOLLASTLIMIT=${DTUMAXP[$CURRDTU]}
 	else if [ "$SOLABSLIMIT" -eq "${DTUMAXP[$CURRDTU]}" ] && [ "$CURRDTU" -lt "$MAXDTUIDX" ]
 	     then
-		 echo step up from inverter $CURRDTU
+		 echo -n "step up from inverter "$CURRDTU" "
 		 ((CURRDTU+=1))
+		 echo " to inverter "$CURRDTU
 		 SOLLASTLIMIT=${DTUMINP[$CURRDTU]}
 	     fi
 	fi
