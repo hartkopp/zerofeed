@@ -257,6 +257,7 @@ while [ true ]; do
 	echo "SOLPWR="$SOLPWR
 	echo "SMPWR="$SMPWR
 	echo "SOLLASTLIMIT="$SOLLASTLIMIT
+	echo "SOLABSIMIT="$SOLABSLIMIT
 	echo "ABSLIMITOFFSET="$ABSLIMITOFFSET
 
 	if [ "$SMPWR" -lt "$SMPWRTHRESMIN" ]; then
@@ -328,12 +329,16 @@ while [ true ]; do
 	    ((CURRDTU-=1))
 	    echo " to inverter "$CURRDTU
 	    SOLLASTLIMIT=${DTUMAXP[$CURRDTU]}
+	    # set a default value when SMPWRTHRESMIN < SOLPWR < SMPWRTHRESMAX
+	    SOLABSLIMIT=${DTUMINP[$CURRDTU]}
 	else if [ "$SOLABSLIMIT" -eq "${DTUMAXP[$CURRDTU]}" ] && [ "$CURRDTU" -lt "$MAXDTUIDX" ]
 	     then
 		 echo -n "step up from inverter "$CURRDTU" "
 		 ((CURRDTU+=1))
 		 echo " to inverter "$CURRDTU
 		 SOLLASTLIMIT=${DTUMINP[$CURRDTU]}
+		 # set a default value when SMPWRTHRESMIN < SOLPWR < SMPWRTHRESMAX
+		 SOLABSLIMIT=${DTUMINP[$CURRDTU]}
 	     fi
 	fi
 
