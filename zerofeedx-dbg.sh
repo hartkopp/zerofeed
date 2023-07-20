@@ -230,6 +230,8 @@ while [ true ]; do
     fi
 
     CURRDTU=0
+    getSOLPWR
+    getSMPWR
     # wait for at least some remarkable solar power (SOLMINPWR)
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] && [ "$SOLPWR" -lt "$SOLMINPWR" ]; do
 
