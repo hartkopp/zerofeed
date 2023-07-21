@@ -28,7 +28,7 @@ to not bloat any logfiles. `zerofeed-dbg.sh` is the main source code.
 
 Create the 'release' script file without debug output with:
 
-`grep -v echo zerofeed-dbg.h > zerofeed.sh`
+`grep -v echo zerofeed-dbg.sh > zerofeed.sh`
 
 ## Configuration
 
