@@ -63,6 +63,9 @@ DTUMINP=(0 0 0)
 MAXDTUIDX=$((${#DTUSN[@]} - 1))
 CURRDTU=0
 
+# the minimum inverter max power (sanity check)
+MINDTUPWR=100
+
 # DTU limiter (should be this at 100% after > 0W start)
 DTULIMREL=0
 
@@ -167,8 +170,8 @@ while [ true ]; do
 	echo "DTULIMREL["$CURRDTU"] = "$DTULIMREL"%"
 
 	getDTUMAXPWR
-	if [ -z "$DTUMAXPWR" ]; then
-	    # no data -> restart process
+	if [ -z "$DTUMAXPWR" ] || [ "${DTUMAXP[$CURRDTU]}" -lt "$MINDTUPWR" ]; then
+	    # no data / weird inverter -> restart process
 	    RESTART=1
 	    break
 	fi
