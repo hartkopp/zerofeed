@@ -141,6 +141,7 @@ getLimitSetStatus()
 while [ true ]
 do
     echo `date +#I\ %d.%m.%y\ %T`
+    CURRDTU=0
     getSOLPWR
     getDTUMAXPWR
     getSMPWR
@@ -155,7 +156,7 @@ do
     do
 	echo `date +#W\ %d.%m.%y\ %T`
 	echo "Wait for devices"
-	sleep 2
+	sleep 10
 	getSOLPWR
 	getSMPWR
 
@@ -195,6 +196,7 @@ do
 
     if [ "$RESTART" -eq "1" ]
     then
+	sleep 20
 	echo restart at getDTUMAXPWR
 	continue
     fi
@@ -227,7 +229,9 @@ do
 	# SETSTATUS can be "Ok" or "Failure" here
 	if [ "$SETSTATUS" != "\"Ok\"" ]
 	then
-	    echo setting the absolute limit of first inverter failed
+	    # this likely happens without sunshine at night - wait a bit longer to restart
+	    echo setting the absolute limit of inverter failed
+	    sleep 60
 	    RESTART=1
 	    break
 	fi
