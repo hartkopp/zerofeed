@@ -61,6 +61,9 @@ DTULIM=(0 0 0)
 DTUMAXP=(0 0 0)
 DTUMINP=(0 0 0)
 
+# initialize arrays for inverter specific values
+DTULASTSOLPWR=(0 0 0)
+
 MAXDTUIDX=$((${#DTUSN[@]} - 1))
 CURRDTU=0
 
@@ -87,6 +90,7 @@ getSOLPWR()
     then
 	# remove fraction to make it an integer
 	SOLPWR=${SOLPWR%.*}
+	DTULASTSOLPWR[$CURRDTU]=$SOLPWR
     fi
 }
 
@@ -138,17 +142,32 @@ getLimitSetStatus()
     done
 }
 
+printState()
+{
+    echo -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU
+    #cho -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU > /var/run/zerofeed.state
+
+    PRINTDTU=0
+    while [ "$PRINTDTU" -le "$MAXDTUIDX" ]
+    do
+	echo -n ","$PRINTDTU,${DTULASTSOLPWR[$PRINTDTU]}
+	#cho -n ","$PRINTDTU,${DTULASTSOLPWR[$PRINTDTU]} >> /var/run/zerofeed.state
+	((PRINTDTU+=1))
+    done
+
+    echo
+    #cho >> /var/run/zerofeed.state
+}
+
 # run initialization and solar power control forever
 while [ true ]
 do
     echo `date +#I\ %d.%m.%y\ %T`
     CURRDTU=0
     getSOLPWR
-    getDTUMAXPWR
     getSMPWR
     getDTULIMREL
     echo "initSOLPWR="$SOLPWR
-    echo "initDTUMAXPWR="$DTUMAXPWR
     echo "initSMPWR="$SMPWR
     echo "initDTULIMREL="$DTULIMREL
 
@@ -212,6 +231,9 @@ do
     SETSTATUS="\"Ok\""
 
     # set limiter of first inverter to its maximum and the rest to minimum
+    echo
+    echo `date +#L\ %d.%m.%y\ %T`
+    echo init non permanent limits on all inverters
     RESTART=0
     CURRDTU=0
     while [ "$CURRDTU" -le "$MAXDTUIDX" ]
@@ -257,8 +279,7 @@ do
 	sleep 10
 	getSOLPWR
 	getSMPWR
-	#cho `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX > /var/run/zerofeed.state
-
+	printState
     done
 
     # start from the top
@@ -269,12 +290,12 @@ do
     do
 	MAINSLEEP=$POLLNORMAL
 
+	echo
 	echo `date +#C\ %d.%m.%y\ %T`
 	echo "SOLPWR="$SOLPWR
 	echo "SMPWR="$SMPWR
 	echo "SOLLASTLIMIT="$SOLLASTLIMIT
 	echo "SOLABSLIMIT="$SOLABSLIMIT
-	echo "ABSLIMITOFFSET="$ABSLIMITOFFSET
 
 	if [ "$SMPWR" -lt "$SMPWRTHRESMIN" ]
 	then
@@ -340,10 +361,6 @@ do
 	    break
 	fi
 
-	# generate CSV capable status output
-	echo `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX
-	#cho `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX > /var/run/zerofeed.state
-
 	SOLLASTLIMIT=$SOLABSLIMIT
 
 	# check for inverter change
@@ -357,7 +374,7 @@ do
 	    SOLABSLIMIT=${DTUMINP[$CURRDTU]}
 	else if [ "$SOLABSLIMIT" -eq "${DTUMAXP[$CURRDTU]}" ] && [ "$CURRDTU" -lt "$MAXDTUIDX" ]
 	     then
-		 echo -n "step up from inverter "$CURRDTU" "
+		 echo -n "step up from inverter "$CURRDTU
 		 ((CURRDTU+=1))
 		 echo " to inverter "$CURRDTU
 		 SOLLASTLIMIT=${DTUMINP[$CURRDTU]}
@@ -365,6 +382,9 @@ do
 		 SOLABSLIMIT=${DTUMINP[$CURRDTU]}
 	     fi
 	fi
+
+	# generate CSV capable status output
+	printState
 
 	sleep $MAINSLEEP
 	getSOLPWR
