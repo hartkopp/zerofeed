@@ -39,7 +39,7 @@ ABSLIMITOFFSET=0
 
 # SMPWR threshold to trigger the SOLLASTLIMIT increase
 SMPWRTHRESMAX=50
-SMPWRTHRESMIN=10
+SMPWRTHRESMIN=20
 
 # SmartMeter IP (Tasmota) (update for your local network setup)
 SMIP=192.168.60.7
