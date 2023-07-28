@@ -258,16 +258,10 @@ do
 	continue
     fi
 
-    # start control process when having 10W more than the minimum control boundary
-    SOLMINPWR=$((${DTUMINP[0]} + 10))
-    echo "SOLMINPWR="$SOLMINPWR
-
-    # at this point the inverters are properly powered up
-
     # set OK value if we do not need to set the relative limit
     SETSTATUS="\"Ok\""
 
-    # set limiter of first inverter to its maximum and the rest to minimum
+    # set limiters to start from the bottom
     echo
     echo `date +#L\ %d.%m.%y\ %T`
     echo init non permanent limits on all inverters
@@ -275,15 +269,8 @@ do
     CURRDTU=0
     while [ "$CURRDTU" -le "$MAXDTUIDX" ]
     do
-	if [ "$CURRDTU" -eq "0" ]
-	then
-	    # set limit to safely reach the control process start limit
-	    INITLIM=$(($SOLMINPWR + 30))
-	else
-	    INITLIM=${DTUMINP[$CURRDTU]}
-	fi
-	echo setting non permanent limit for inverter $CURRDTU to $INITLIM W
-	SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'${DTUSN[$CURRDTU]}'", "limit_type":'$LTABSNP', "limit_value":'$INITLIM'}' 2>/dev/null | jq '.type'`
+	echo setting non permanent limit for inverter $CURRDTU to ${DTUMINP[$CURRDTU]} W
+	SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'${DTUSN[$CURRDTU]}'", "limit_type":'$LTABSNP', "limit_value":'${DTUMINP[$CURRDTU]}'}' 2>/dev/null | jq '.type'`
 	echo "SETLIM="$SETLIM
 	getLimitSetStatus
 
@@ -306,20 +293,15 @@ do
     CURRDTU=0
     getSOLPWR
     getSMPWR
-    # wait for at least some remarkable solar power (SOLMINPWR)
-    while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ] && [ "$SOLPWR" -lt "$SOLMINPWR" ]
-    do
-	echo `date +#P\ %d.%m.%y\ %T`
-	echo "Wait for "$SOLMINPWR"W solar power"
-	echo "SOLPWR="$SOLPWR
-	sleep 10
-	getSOLPWR
-	getSMPWR
-	printState
-    done
+    # last check before starting the control loop
+    if [ -z "$SMPWR" ] || [ -z "$SOLPWR" ]
+    then
+	echo restart before control loop
+	continue
+    fi
 
     # start from the top
-    SOLLASTLIMIT=${DTUMAXP[$CURRDTU]}
+    SOLLASTLIMIT=$((${DTUMAXP[$CURRDTU]} + 1))
 
     # main control loop
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ]
