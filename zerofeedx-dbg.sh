@@ -387,7 +387,7 @@ do
 	    echo -n "step down from inverter "$CURRDTU
 	    ((CURRDTU-=1))
 	    echo " to inverter "$CURRDTU
-	    SOLLASTLIMIT=$((${DTUMAXP[$CURRDTU]} + 1))
+	    SOLLASTLIMIT=${DTUMAXP[$CURRDTU]}
 	    # set a default value when SMPWRTHRESMIN < SOLPWR < SMPWRTHRESMAX
 	    SOLABSLIMIT=${DTUMINP[$CURRDTU]}
 	else if [ "$SOLABSLIMIT" -eq "${DTUMAXP[$CURRDTU]}" ] && [ "$CURRDTU" -lt "$MAXDTUIDX" ]
