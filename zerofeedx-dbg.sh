@@ -81,12 +81,18 @@ LTRELNP=1
 getSOLPWR()
 {
     # get power from the single selected inverter
-    SOLPWR=`curl -s http://$DTUIP/api/livedata/status | jq '.inverters[] | select(.serial == "'${DTUSN[$CURRDTU]}'").AC."0".Power.v'`
+    #SOLPWR=`curl -s http://$DTUIP/api/livedata/status | jq '.inverters[] | select(.serial == "'${DTUSN[$CURRDTU]}'").AC."0".Power.v'`
+    read -d "\n" SOLALLPWR YIELDDAY SOLPWR <<< `curl -s http://$DTUIP/api/livedata/status | jq '.total.Power.v, .total.YieldDay.v, (.inverters[] | select(.serial == "'${DTUSN[$CURRDTU]}'").AC."0".Power.v)'`
     if [ -n "$SOLPWR" ]
     then
 	# remove fraction to make it an integer
 	SOLPWR=${SOLPWR%.*}
 	DTULASTSOLPWR[$CURRDTU]=$SOLPWR
+    fi
+    if [ -n "$SOLALLPWR" ]
+    then
+	# remove fraction to make it an integer
+	SOLALLPWR=${SOLALLPWR%.*}
     fi
 }
 
@@ -171,8 +177,8 @@ getLimitSetStatus()
 
 printState()
 {
-    echo -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SMPWRIN","$SMPWROUT","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU
-    #cho -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SMPWRIN","$SMPWROUT","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU > /var/run/zerofeed.state
+    echo -n `date +%d.%m.%y,%T`","$YIELDDAY","$SOLALLPWR","$SOLPWR","$SMPWR","$SMPWRIN","$SMPWROUT","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU
+    #cho -n `date +%d.%m.%y,%T`","$YIELDDAY","$SOLALLPWR","$SOLPWR","$SMPWR","$SMPWRIN","$SMPWROUT","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU > /var/run/zerofeed.state
 
     PRINTDTU=0
     while [ "$PRINTDTU" -le "$MAXDTUIDX" ]
