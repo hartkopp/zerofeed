@@ -147,7 +147,8 @@ getDTULIMREL()
 # get current power via 'status 8' from Tasmota (for LK13BE smart meter)
 getSMPWR()
 {
-    SMPWR=`curl -s http://$SMIP/cm?cmnd=status%208 | jq '.StatusSNS.LK13BE.Power_curr'`
+    #SMPWR=`curl -s http://$SMIP/cm?cmnd=status%208 | jq '.StatusSNS.LK13BE.Power_curr'`
+    read -d "\n" SMPWR SMPWRIN SMPWROUT <<< `curl -s http://$SMIP/cm?cmnd=status%208 | jq '.StatusSNS.LK13BE | .Power_curr,.Power_total_in,.Power_total_out'`
     if [ -n "$SMPWR" ]
     then
 	# remove fraction to make it an integer
@@ -170,8 +171,8 @@ getLimitSetStatus()
 
 printState()
 {
-    echo -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU
-    #cho -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU > /var/run/zerofeed.state
+    echo -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SMPWRIN","$SMPWROUT","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU
+    #cho -n `date +%d.%m.%y,%T`","$SOLPWR","$SMPWR","$SMPWRIN","$SMPWROUT","$SOLABSLIMIT","$SOLLASTLIMIT","$ABSLIMITOFFSET","$SMPWRTHRESMIN","$SMPWRTHRESMAX","$MAXDTUIDX","$CURRDTU > /var/run/zerofeed.state
 
     PRINTDTU=0
     while [ "$PRINTDTU" -le "$MAXDTUIDX" ]
