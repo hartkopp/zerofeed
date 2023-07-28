@@ -94,6 +94,36 @@ getSOLPWR()
     fi
 }
 
+waitDTUpowerUp()
+{
+    NOPOWER=1
+    while [ "$NOPOWER" -eq "1" ]
+    do
+	NOPOWER=0
+	CURRDTU=0
+	while [ "$CURRDTU" -le "$MAXDTUIDX" ]
+	do
+	    getSOLPWR
+	    if [ -z "$SOLPWR" ] || [ "$SOLPWR" -lt "5" ]
+	    then
+		echo `date +#P\ %d.%m.%y\ %T`" NOPOWER for DTU "$CURRDTU" ("$SOLPWR"W)"
+		NOPOWER=1
+		break
+	    fi
+	    ((CURRDTU+=1))
+	done
+	if [ -z "$SOLPWR" ]
+	then
+	    NOPOWER=1
+	    break
+	fi
+	if [ "$NOPOWER" -eq "1" ]
+	then
+	    sleep 60
+	fi
+    done
+}
+
 getDTUMAXPWR()
 {
     DTUMAXPWR=`curl -s http://$DTUIP/api/limit/status | jq '."'${DTUSN[$CURRDTU]}'".max_power'`
@@ -182,7 +212,15 @@ do
 
     done
 
-    # get maximum power of inverters and fill DTUMAXP[] &  DTUMINP[]
+    waitDTUpowerUp
+    if [ "$NOPOWER" -eq "1" ]
+    then
+	echo restart waitDTUpowerUp
+	continue
+    fi
+    echo waitDTUpowerUp done
+
+    # get maximum power of inverters and fill DTUMAXP[] & DTUMINP[]
     RESTART=0
     CURRDTU=0
     while [ "$CURRDTU" -le "$MAXDTUIDX" ]
@@ -216,7 +254,6 @@ do
 
     if [ "$RESTART" -eq "1" ]
     then
-	sleep 20
 	echo restart at getDTUMAXPWR
 	continue
     fi
@@ -240,7 +277,8 @@ do
     do
 	if [ "$CURRDTU" -eq "0" ]
 	then
-	    INITLIM=${DTUMAXP[$CURRDTU]}
+	    # set limit to safely reach the control process start limit
+	    INITLIM=$(($SOLMINPWR + 30))
 	else
 	    INITLIM=${DTUMINP[$CURRDTU]}
 	fi
@@ -252,9 +290,7 @@ do
 	# SETSTATUS can be "Ok" or "Failure" here
 	if [ "$SETSTATUS" != "\"Ok\"" ]
 	then
-	    # this likely happens without sunshine at night - wait a bit longer to restart
 	    echo setting the absolute limit of inverter failed
-	    sleep 60
 	    RESTART=1
 	    break
 	fi
