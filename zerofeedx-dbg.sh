@@ -78,10 +78,6 @@ LTABSNP=0
 # limit type relative (non persistent)
 LTRELNP=1
 
-# poll interval
-POLLNORMAL=5
-POLLFAST=5
-
 getSOLPWR()
 {
     # get power from the single selected inverter
@@ -306,8 +302,6 @@ do
     # main control loop
     while [ -n "$SMPWR" ] && [ -n "$SOLPWR" ]
     do
-	MAINSLEEP=$POLLNORMAL
-
 	echo
 	echo `date +#C\ %d.%m.%y\ %T`
 	echo "SOLPWR="$SOLPWR
@@ -368,7 +362,6 @@ do
 	    SETLIM=`curl -u "$DTUUSER" http://$DTUIP/api/limit/config -d 'data={"serial":"'${DTUSN[$CURRDTU]}'", "limit_type":'$LTABSNP', "limit_value":'$SOLABSLIMIT'}' 2>/dev/null | jq '.type'`
 	    echo "SETLIM="$SETLIM" on inverter "$CURRDTU
 	    getLimitSetStatus
-	    MAINSLEEP=$POLLFAST
 	fi
 
 	# SETSTATUS can be "Ok" or "Failure" here
@@ -404,9 +397,17 @@ do
 	# generate CSV capable status output
 	printState
 
-	sleep $MAINSLEEP
-	getSOLPWR
 	getSMPWR
+	SOLTIMEOUT=4
+	while [ -n "$SMPWR" ] && [[ "$SMPWR" -gt "$SMPWRTHRESMIN" ]] && [ "$SOLTIMEOUT" -gt "0" ]
+	do
+	    sleep 1
+	    getSMPWR
+	    ((SOLTIMEOUT-=1))
+	    printState
+	done
+
+	getSOLPWR
 
 	# restart whole process
 	if [ -z "$SOLPWR" ] || [ "$SOLPWR" -eq "0" ] || [ -z "$SMPWR" ]
