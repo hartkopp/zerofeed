@@ -335,6 +335,13 @@ do
 	    echo "update SOLABSLIMIT="$SOLABSLIMIT
 	fi
 
+	# when hopping between inverters start with current SMPWR value
+	if [ "$SOLLASTLIMIT" -eq "$((${DTUMAXP[$CURRDTU]} + 1))" ]
+	then
+	    SOLABSLIMIT=$SMPWR
+	    echo "hop detected - set SOLABSLIMIT to SMPWR ("$SOLABSLIMIT")"
+	fi
+
 	# do not set limits beyond the inverter capabilities
 	if [ "$SOLABSLIMIT" -gt "${DTUMAXP[$CURRDTU]}" ]
 	then
