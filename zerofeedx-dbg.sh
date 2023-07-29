@@ -51,6 +51,9 @@ DTUIP=192.168.60.5
 DTUUSER="admin:openDTU42"
 
 # DTU serial numbers (insert your inverter SNs here)
+# N.B. the size of this array has to be transferred to the arrays below
+# namely the arrays: DTULIM DTUMAXP DTUMINP DTULASTSOLPWR
+#DTUSN=(116190745467)
 DTUSN=(116190745467 116180400144 116190745954)
 
 # manual limits to override the detected inverter limits (in Watt) (0 = disabled)
