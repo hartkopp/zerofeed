@@ -314,7 +314,9 @@ do
     do
 	echo
 	echo `date +#C\ %d.%m.%y\ %T`
+	echo "SOLALLPWR="$SOLALLPWR
 	echo "SOLPWR="$SOLPWR
+	echo "CURRDTU="$CURRDTU
 	echo "SMPWR="$SMPWR
 	echo "SOLLASTLIMIT="$SOLLASTLIMIT
 	echo "SOLABSLIMIT="$SOLABSLIMIT
