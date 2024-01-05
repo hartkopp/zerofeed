@@ -43,8 +43,13 @@ The script has several options to be adapted to your environment:
 - DTU default admin user access (from OpenDTU installation)<br />
 `DTUUSER="admin:openDTU42"`
 
-- DTU serial number (insert your inverter SN here)<br />
-`DTUSN=116180400144`
+- DTU serial number (insert your inverter SN's here)<br />
+`DTUSN=(116190745467 116180400144 116190745954)`
+
+- DTU power limits to override the detected inverter limits (in Watt) (0 = disabled)<br />
+`DTULIM=(0 0 0)` or `DTULIM=(600 800 1000)`
+
+Of course the script can also handle single inverters, e.g. `DTUSN=(116190745467)` and `DTULIM=(0)`. The array sizes of `DTUMAXP`, `DTUMINP` and `DTULASTSOLPWR` have to be adapted according to the number of interters too. Please check the script for that.
 
 - SmartMeter type adaption:
 
