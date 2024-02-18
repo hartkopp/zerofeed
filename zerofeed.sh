@@ -85,7 +85,12 @@ getSOLPWR()
 {
     # get power from the single selected inverter
     #SOLPWR=`curl -s http://$DTUIP/api/livedata/status | jq '.inverters[] | select(.serial == "'${DTUSN[$CURRDTU]}'").AC."0".Power.v'`
-    read -d "\n" SOLALLPWR YIELDDAY SOLPWR <<< `curl -s http://$DTUIP/api/livedata/status | jq '.total.Power.v, .total.YieldDay.v, (.inverters[] | select(.serial == "'${DTUSN[$CURRDTU]}'").AC."0".Power.v)'`
+
+    # BREAKING CHANGE in openDTU API v24.2.12, 2024-01-30 see:
+    # https://github.com/tbnobody/OpenDTU/releases/tag/v24.2.12
+    # read -d "\n" SOLALLPWR YIELDDAY SOLPWR <<< `curl -s http://$DTUIP/api/livedata/status | jq '.total.Power.v, .total.YieldDay.v, (.inverters[] | select(.serial == "'${DTUSN[$CURRDTU]}'").AC."0".Power.v)'`
+    read -d "\n" SOLALLPWR YIELDDAY SOLPWR <<< `curl -s http://$DTUIP/api/livedata/status?inv=${DTUSN[$CURRDTU]} | jq '.total.Power.v, .total.YieldDay.v, .inverters[].AC."0".Power.v'`
+
     if [ -n "$SOLPWR" ]
     then
 	# remove fraction to make it an integer
