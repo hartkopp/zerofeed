@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f3f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111110" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Solar">
+<title>Zerofeed Solar</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='14' fill='%23eda100'/%3E%3Cg stroke='%23eda100' stroke-width='5' stroke-linecap='round'%3E%3Cpath d='M32 4v8M32 52v8M4 32h8M52 32h8M12 12l6 6M46 46l6 6M12 52l6-6M46 18l6-6'/%3E%3C/g%3E%3C/svg%3E">
+<!--
+  Mobile Anzeige der zerofeed JSON Daten (zerofeedjson.sh -> /var/run/zerofeed.json)
+  Installation auf dem OpenWrt Router: diese Datei nach /www/solar/index.html kopieren.
+  Erwartet zerofeed.json im selben Verzeichnis (Symlink auf /var/run/zerofeed.json).
+  Keine externen Abhaengigkeiten - funktioniert auch ohne Internetzugang.
+  License: MIT
+-->
+<style>
+  :root {
+    color-scheme: light;
+    --bg:             #f4f3f0;
+    --surface-1:      #fcfcfb;
+    --border:         #e4e3de;
+    --grid:           #ebeae6;
+    --axis:           #b9b8b1;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #6b6a65;
+    --series-1:       #2a78d6; /* Solar */
+    --series-2:       #eb6834; /* Netz  */
+    --meter-fill:     #2a78d6;
+    --meter-track:    #cde2fb;
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --serious:        #ec835a;
+    --critical:       #d03b3b;
+    --badge-bg:       #e6f0fc;
+    --badge-text:     #1c5cab;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:             #111110;
+      --surface-1:      #1a1a19;
+      --border:         #2e2e2b;
+      --grid:           #2a2a28;
+      --axis:           #55544f;
+      --text-primary:   #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #9a998f;
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --meter-fill:     #3987e5;
+      --meter-track:    #163a66;
+      --badge-bg:       #16365e;
+      --badge-text:     #b7d3f6;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:             #111110;
+    --surface-1:      #1a1a19;
+    --border:         #2e2e2b;
+    --grid:           #2a2a28;
+    --axis:           #55544f;
+    --text-primary:   #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #9a998f;
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --meter-fill:     #3987e5;
+    --meter-track:    #163a66;
+    --badge-bg:       #16365e;
+    --badge-text:     #b7d3f6;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  .wrap { max-width: 560px; margin: 0 auto; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 12px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .sub { font-size: 13px; color: var(--text-muted); margin: 2px 0 0; }
+
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .status[data-state="good"] .dot { background: var(--good); }
+  .status[data-state="warning"] .dot { background: var(--warning); }
+  .status[data-state="critical"] .dot { background: var(--critical); }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+
+  main.stale .live { opacity: .55; }
+
+  /* Hero */
+  .hero .label { font-size: 14px; color: var(--text-secondary); }
+  .hero-value { font-size: 56px; font-weight: 600; line-height: 1.05; letter-spacing: -0.02em; margin: 2px 0 8px; }
+  .hero-value .unit { font-size: 24px; font-weight: 500; color: var(--text-secondary); margin-left: 6px; letter-spacing: 0; }
+  .feed { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-primary); }
+  .feed svg { flex: none; }
+
+  /* Stat tiles */
+  .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+  .tile .label { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .value { font-size: 22px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+  .tile .value .unit { font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-left: 3px; }
+  .tile .hint { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Inverters */
+  .inv { padding: 12px 0; border-top: 1px solid var(--border); }
+  .inv:first-of-type { border-top: 0; padding-top: 10px; }
+  .inv-head { display: flex; align-items: baseline; gap: 8px; }
+  .inv-name { font-weight: 600; }
+  .inv-val { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--badge-bg); color: var(--badge-text); }
+  .meter { position: relative; height: 8px; border-radius: 999px; background: var(--meter-track); margin: 8px 0 6px; }
+  .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--meter-fill); min-width: 0; transition: width .4s ease; }
+  .meter .limit {
+    position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; border-radius: 1px;
+    background: var(--text-primary); box-shadow: 0 0 0 2px var(--surface-1); transition: left .4s ease;
+  }
+  .inv-sub { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .note { font-size: 12px; color: var(--text-muted); margin: 8px 0 0; }
+
+  /* Chart */
+  .chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 14px; font-size: 13px; color: var(--text-secondary); margin: 8px 0 4px; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+  #chart { position: relative; width: 100%; min-height: 180px; }
+  #chart svg { display: block; width: 100%; height: 180px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+  #chart .empty { margin: 0; padding: 70px 0; text-align: center; font-size: 13px; color: var(--text-muted); }
+  .tick { font-size: 11px; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .endlabel { font-size: 12px; fill: var(--text-secondary); }
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 2;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.12);
+    padding: 6px 9px; font-size: 12px; line-height: 1.45; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .tooltip .t { color: var(--text-muted); }
+  .tooltip i { display: inline-block; width: 10px; height: 2px; margin-right: 6px; vertical-align: middle; border-radius: 1px; }
+  .tooltip b { font-weight: 600; }
+
+  details { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+  summary { cursor: pointer; padding: 4px 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; color: var(--text-secondary); }
+  td { color: var(--text-primary); }
+
+  dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+  dt { color: var(--text-secondary); }
+  dd { margin: 0; text-align: right; font-weight: 600; }
+
+  footer { text-align: center; font-size: 12px; color: var(--text-muted); margin: 4px 0 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Solar</h1>
+    <div id="status" class="status" data-state="" role="status"><span class="dot"></span><span id="statusText">Lade …</span></div>
+  </header>
+
+  <main id="main">
+    <section class="card hero live" aria-label="Solarleistung">
+      <div class="label">Solarleistung gesamt</div>
+      <div class="hero-value"><span id="solar">–</span><span class="unit">W</span></div>
+      <div id="feed" class="feed"></div>
+    </section>
+
+    <section class="tiles live" aria-label="Kennzahlen">
+      <div class="tile">
+        <div class="label" id="gridLabel">Netz</div>
+        <div class="value"><span id="grid">–</span><span class="unit">W</span></div>
+        <div class="hint" id="gridHint">&nbsp;</div>
+      </div>
+      <div class="tile">
+        <div class="label">Verbrauch</div>
+        <div class="value"><span id="use">–</span><span class="unit">W</span></div>
+        <div class="hint">Haus gesamt</div>
+      </div>
+      <div class="tile">
+        <div class="label">Ertrag heute</div>
+        <div class="value"><span id="yield">–</span><span class="unit" id="yieldUnit">kWh</span></div>
+        <div class="hint">alle WR</div>
+      </div>
+    </section>
+
+    <section class="card live" aria-label="Wechselrichter">
+      <h2>Wechselrichter</h2>
+      <div id="inverters"></div>
+      <p class="note">Balken: Leistung bezogen auf die max. Leistung · Strich: gesetztes Limit ·
+        voller Balken: ohne Limit. Live-Messwert nur beim geregelten WR, gedrosselte WR
+        mit letztem Messwert; WR ohne Limit teilen sich den Rest der Gesamtleistung.</p>
+    </section>
+
+    <section class="card" aria-label="Verlauf">
+      <div class="chart-head">
+        <h2>Verlauf</h2>
+        <span class="sub">Leistung in W · letzte 60 Min.</span>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--series-1)"></i>Solar</span>
+        <span><i style="background:var(--series-2)"></i>Netz (+ Bezug / − Einspeisung)</span>
+      </div>
+      <div id="chart"></div>
+      <details id="tableBox">
+        <summary>Als Tabelle anzeigen</summary>
+        <table>
+          <thead><tr><th>Zeit</th><th>Solar</th><th>Netz</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </details>
+    </section>
+
+    <section class="card live" aria-label="Zählerstand">
+      <h2>Zählerstand</h2>
+      <dl>
+        <dt>Bezug gesamt</dt><dd id="meterIn">–</dd>
+        <dt>Einspeisung gesamt</dt><dd id="meterOut">–</dd>
+      </dl>
+    </section>
+  </main>
+
+  <footer id="footer">&nbsp;</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var POLL_MS   = 1000;          // Abfrageintervall (zerofeed.sh schreibt etwa jede Sekunde)
+  var STALE_S   = 120;           // Daten aelter als das gelten als veraltet
+  var HIST_MS   = 60 * 60 * 1000; // Verlauf: 60 Minuten
+  var HIST_STEP_MS = 5000;       // Verlauf: hoechstens ein Messpunkt pro 5 Sekunden
+  var GAP_MS    = 2 * 60 * 1000; // Luecke im Verlauf ab 2 Minuten ohne Daten
+  var HIST_KEY  = 'zerofeed-history-v1';
+  var DATA_URL  = 'zerofeed.json';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var nf0 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
+  var nf1 = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  var nf2 = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  var num = function (v) { v = Number(v); return isFinite(v) ? v : 0; };
+  var hhmm = function (t) { var d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  var hhmmss = function (t) { var d = new Date(t); return hhmm(t) + ':' + pad(d.getSeconds()); };
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  var ICON_OK = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="var(--good)"/><path d="M4.5 8.2l2.3 2.3 4.7-4.9" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICON_WARN = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.2l7.2 13.3H.8z" fill="var(--serious)" stroke="var(--serious)" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="12.2" r="1" fill="#fff"/></svg>';
+
+  // "03.11.2026 09:02:52" -> Date
+  function parseTs(s) {
+    var m = /^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(s || '');
+    return m ? new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]) : null;
+  }
+
+  // ---------- Verlauf (pro Browser gespeichert) ----------
+  var hist = [];
+  try { hist = JSON.parse(localStorage.getItem(HIST_KEY)) || []; } catch (e) { hist = []; }
+  if (!Array.isArray(hist)) hist = [];
+  function pruneHist() {
+    var cut = Date.now() - HIST_MS;
+    hist = hist.filter(function (p) { return p && p.t > cut; });
+  }
+  function saveHist() {
+    try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); } catch (e) { /* egal */ }
+  }
+  pruneHist();
+
+  var lastTs = null;
+
+  // ---------- Status ----------
+  function setStatus(state, text) {
+    $('status').setAttribute('data-state', state);
+    $('statusText').textContent = text;
+  }
+
+  // ---------- Abfrage ----------
+  var timer = null;
+  function poll() {
+    var xhrStatus = 0;
+    fetch(DATA_URL + '?_=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { xhrStatus = r.status; if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(render)
+      .catch(function () {
+        $('main').classList.add('stale');
+        setStatus('critical', xhrStatus === 404 ? 'Keine Daten (Skript aktiv?)' : 'Keine Verbindung');
+      });
+  }
+  function start() { stop(); poll(); timer = setInterval(poll, POLL_MS); }
+  function stop() { if (timer) clearInterval(timer); timer = null; }
+  document.addEventListener('visibilitychange', function () { document.hidden ? stop() : start(); });
+
+  // ---------- Darstellung ----------
+  function render(d) {
+    var ts = parseTs(d.timestamp);
+    var age = ts ? (Date.now() - ts.getTime()) / 1000 : Infinity;
+    var stale = age > STALE_S;
+    $('main').classList.toggle('stale', stale);
+    if (stale) setStatus('warning', ts ? 'Veraltet · Stand ' + hhmm(ts) : 'Veraltet');
+    else setStatus('good', 'Live');
+
+    var solar = num(d.solallpwr);
+    var grid  = num(d.smpwr);
+    var use   = solar + grid;
+
+    $('solar').textContent = nf0.format(solar);
+
+    var feed = $('feed');
+    if (grid < 0) feed.innerHTML = ICON_WARN + '<span>Einspeisung ' + nf0.format(-grid) + ' W</span>';
+    else feed.innerHTML = ICON_OK + '<span>Keine Einspeisung</span>';
+
+    $('gridLabel').textContent = grid < 0 ? 'Einspeisung' : 'Netzbezug';
+    $('grid').textContent = nf0.format(Math.abs(grid));
+    $('gridHint').textContent = grid < 0 ? 'ins Netz' : 'aus dem Netz';
+    $('use').textContent = nf0.format(Math.max(0, use));
+
+    var y = num(d.yieldday); // Wh
+    if (y >= 1000) { $('yield').textContent = nf2.format(y / 1000); $('yieldUnit').textContent = 'kWh'; }
+    else { $('yield').textContent = nf0.format(y); $('yieldUnit').textContent = 'Wh'; }
+
+    $('meterIn').textContent  = nf1.format(num(d.smpwrin)) + ' kWh';
+    $('meterOut').textContent = nf1.format(num(d.smpwrout)) + ' kWh';
+
+    renderInverters(d);
+
+    $('footer').textContent = 'Stand: ' + (d.timestamp || '–');
+
+    if (ts && d.timestamp !== lastTs) {
+      lastTs = d.timestamp;
+      var t = ts.getTime();
+      if (!hist.length || t - hist[hist.length - 1].t >= HIST_STEP_MS) {
+        hist.push({ t: t, s: solar, n: grid });
+        pruneHist();
+        saveHist();
+        // nur bei neuen Daten neu zeichnen (Tooltip bleibt sonst stehen)
+        drawChart();
+        renderTable();
+      }
+    }
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function renderInverters(d) {
+    var box = $('inverters');
+    box.textContent = '';
+    var list = Array.isArray(d.dtus) ? d.dtus : [];
+    var cur = num(d.currdtu);
+
+    // zerofeed.sh liest nur den gerade geregelten WR live aus (lastpwr der
+    // anderen WR ist ein Snapshot). WR ohne Limit teilen sich daher die
+    // Differenz zwischen Gesamtleistung und der Summe aus geregeltem WR
+    // (live) und gedrosselten WR (Snapshot) zu gleichen Teilen.
+    var isOpen = function (inv) {
+      var max = num(inv.maxpwr);
+      return num(inv.id) !== cur && max > 0 && num(inv.setlim) >= max;
+    };
+    var openCount = 0, known = 0;
+    list.forEach(function (inv) {
+      if (isOpen(inv)) openCount++;
+      else known += num(inv.lastpwr);
+    });
+    var rest = num(d.solallpwr) - known;
+    var share = openCount ? Math.max(0, Math.round(rest / openCount)) : 0;
+
+    list.forEach(function (inv) {
+      var name = (inv.name && inv.name !== 'none') ? String(inv.name) : 'WR ' + (num(inv.id) + 1);
+      var max = num(inv.maxpwr), lim = num(inv.setlim);
+      var active = num(inv.id) === cur;
+      var open = isOpen(inv);
+      var pwr, fillPct, estimate, subText;
+      var pct = function (v) { return max > 0 ? Math.max(0, Math.min(100, v / max * 100)) : 0; };
+
+      if (active) {
+        // Live-Messwert
+        pwr = num(inv.lastpwr);
+        fillPct = pct(pwr);
+        estimate = false;
+        subText = (max > 0 && lim >= max ? 'ohne Limit' : 'Limit ' + nf0.format(lim) + ' W') + ' · max. ' + nf0.format(max) + ' W';
+      } else if (open) {
+        // ohne Limit: Anteil an der Differenz, Balken voll
+        pwr = share;
+        fillPct = 100;
+        estimate = true;
+        subText = 'ohne Limit · max. ' + nf0.format(max) + ' W';
+      } else {
+        // auf Limit gedrosselt: letzter Snapshot
+        pwr = num(inv.lastpwr);
+        fillPct = pct(pwr);
+        estimate = true;
+        subText = 'Limit ' + nf0.format(lim) + ' W · max. ' + nf0.format(max) + ' W';
+      }
+
+      var row = el('div', 'inv');
+      var head = el('div', 'inv-head');
+      head.appendChild(el('span', 'inv-name', name));
+      if (active) head.appendChild(el('span', 'badge', 'wird geregelt'));
+      head.appendChild(el('span', 'inv-val', (estimate ? '≈ ' : '') + nf0.format(pwr) + ' W'));
+      row.appendChild(head);
+
+      var meter = el('div', 'meter');
+      meter.setAttribute('role', 'img');
+      meter.setAttribute('aria-label', name + ': ' + (estimate ? 'circa ' : '') + nf0.format(pwr) + ' W, ' + subText);
+      var fill = el('div', 'fill'); fill.style.width = fillPct + '%';
+      meter.appendChild(fill);
+      if (!open && lim > 0 && lim < max) { var mark = el('div', 'limit'); mark.style.left = pct(lim) + '%'; meter.appendChild(mark); }
+      row.appendChild(meter);
+
+      row.appendChild(el('div', 'inv-sub', subText));
+      box.appendChild(row);
+    });
+    if (!list.length) box.appendChild(el('p', 'note', 'Keine Wechselrichterdaten.'));
+  }
+
+  function renderTable() {
+    var body = $('tableBody');
+    body.textContent = '';
+    var rows = hist.slice(-30).reverse();
+    rows.forEach(function (p) {
+      var tr = document.createElement('tr');
+      [hhmmss(p.t), nf0.format(p.s) + ' W', nf0.format(p.n) + ' W'].forEach(function (v) { tr.appendChild(el('td', null, v)); });
+      body.appendChild(tr);
+    });
+  }
+
+  // ---------- Diagramm ----------
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs, parent) {
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function niceStep(raw) {
+    if (raw <= 0) return 100;
+    var p = Math.pow(10, Math.floor(Math.log10(raw)));
+    var steps = [1, 2, 2.5, 5, 10];
+    for (var i = 0; i < steps.length; i++) if (steps[i] * p >= raw) return steps[i] * p;
+    return 10 * p;
+  }
+
+  function drawChart() {
+    var box = $('chart');
+    var W = box.clientWidth || 320, H = 180;
+    box.textContent = '';
+    if (hist.length < 2) {
+      box.appendChild(el('p', 'empty', 'Der Verlauf erscheint nach den ersten Messwerten.'));
+      return;
+    }
+    var M = { l: 40, r: 40, t: 10, b: 24 };
+    var t0 = hist[0].t, t1 = hist[hist.length - 1].t;
+    var lo = 0, hi = 100;
+    hist.forEach(function (p) { lo = Math.min(lo, p.s, p.n); hi = Math.max(hi, p.s, p.n); });
+    var step = niceStep((hi - lo) / 3);
+    lo = Math.floor(lo / step) * step;
+    hi = Math.ceil(hi / step) * step;
+    var x = function (t) { return M.l + (t - t0) / ((t1 - t0) || 1) * (W - M.l - M.r); };
+    var y = function (v) { return M.t + (hi - v) / ((hi - lo) || 1) * (H - M.t - M.b); };
+
+    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img',
+      'aria-label': 'Verlauf von Solarleistung und Netzleistung der letzten 60 Minuten' }, box);
+
+    // Gitter + Y-Achse
+    for (var v = lo; v <= hi + 1e-9; v += step) {
+      var yy = Math.round(y(v)) + 0.5;
+      svgEl('line', { x1: M.l, x2: W - M.r, y1: yy, y2: yy,
+        stroke: v === 0 ? 'var(--axis)' : 'var(--grid)', 'stroke-width': 1 }, svg);
+      var tl = svgEl('text', { x: M.l - 6, y: yy + 4, 'text-anchor': 'end', 'class': 'tick' }, svg);
+      tl.textContent = nf0.format(v);
+    }
+    // X-Achse: Anfang, Mitte, Ende
+    [[t0, 'start'], [(t0 + t1) / 2, 'middle'], [t1, 'end']].forEach(function (a) {
+      var tx = svgEl('text', { x: x(a[0]), y: H - 6, 'text-anchor': a[1], 'class': 'tick' }, svg);
+      tx.textContent = hhmm(a[0]);
+    });
+
+    // Linien (mit Luecken)
+    function pathFor(key) {
+      var dstr = '', prev = null;
+      hist.forEach(function (p) {
+        var cmd = (!prev || p.t - prev.t > GAP_MS) ? 'M' : 'L';
+        dstr += cmd + x(p.t).toFixed(1) + ',' + y(p[key]).toFixed(1);
+        prev = p;
+      });
+      return dstr;
+    }
+    svgEl('path', { d: pathFor('n'), fill: 'none', stroke: 'var(--series-2)', 'stroke-width': 2,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    svgEl('path', { d: pathFor('s'), fill: 'none', stroke: 'var(--series-1)', 'stroke-width': 2,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+
+    // Direkte Beschriftung am Linienende (Kollisionen vermeiden)
+    var last = hist[hist.length - 1];
+    var ys = y(last.s), yn = y(last.n);
+    if (Math.abs(ys - yn) < 14) { var mid = (ys + yn) / 2, up = ys <= yn ? -7 : 7; ys = mid + up; yn = mid - up; }
+    var ls = svgEl('text', { x: W - M.r + 6, y: ys + 4, 'class': 'endlabel' }, svg); ls.textContent = 'Solar';
+    var ln = svgEl('text', { x: W - M.r + 6, y: yn + 4, 'class': 'endlabel' }, svg); ln.textContent = 'Netz';
+
+    // Hover / Touch: Fadenkreuz + Tooltip
+    var cross = svgEl('g', { visibility: 'hidden' }, svg);
+    var vline = svgEl('line', { y1: M.t, y2: H - M.b, stroke: 'var(--axis)', 'stroke-width': 1 }, cross);
+    var dotN = svgEl('circle', { r: 4, fill: 'var(--series-2)', stroke: 'var(--surface-1)', 'stroke-width': 2 }, cross);
+    var dotS = svgEl('circle', { r: 4, fill: 'var(--series-1)', stroke: 'var(--surface-1)', 'stroke-width': 2 }, cross);
+    var hit = svgEl('rect', { x: M.l, y: 0, width: Math.max(0, W - M.l - M.r), height: H, fill: 'transparent' }, svg);
+    var tip = el('div', 'tooltip'); tip.style.display = 'none'; box.appendChild(tip);
+
+    function nearest(t) {
+      var a = 0, b = hist.length - 1;
+      while (b - a > 1) { var m = (a + b) >> 1; if (hist[m].t < t) a = m; else b = m; }
+      return (t - hist[a].t <= hist[b].t - t) ? hist[a] : hist[b];
+    }
+    function show(ev) {
+      var r = svg.getBoundingClientRect();
+      var px = (ev.clientX - r.left) * (W / r.width);
+      var t = t0 + (px - M.l) / (W - M.l - M.r) * (t1 - t0);
+      var p = nearest(t), cx = x(p.t);
+      vline.setAttribute('x1', cx); vline.setAttribute('x2', cx);
+      dotS.setAttribute('cx', cx); dotS.setAttribute('cy', y(p.s));
+      dotN.setAttribute('cx', cx); dotN.setAttribute('cy', y(p.n));
+      cross.setAttribute('visibility', 'visible');
+      tip.innerHTML = '<div class="t">' + hhmmss(p.t) + '</div>' +
+        '<div><i style="background:var(--series-1)"></i>Solar <b>' + nf0.format(p.s) + ' W</b></div>' +
+        '<div><i style="background:var(--series-2)"></i>Netz <b>' + nf0.format(p.n) + ' W</b></div>';
+      tip.style.display = 'block';
+      var scale = r.width / W;
+      var left = cx * scale + 12;
+      if (left + tip.offsetWidth > box.clientWidth) left = cx * scale - tip.offsetWidth - 12;
+      tip.style.left = Math.max(0, left) + 'px';
+      tip.style.top = '4px';
+    }
+    function hide() { cross.setAttribute('visibility', 'hidden'); tip.style.display = 'none'; }
+    hit.addEventListener('pointerdown', show);
+    hit.addEventListener('pointermove', show);
+    // Maus: beim Verlassen ausblenden. Touch: Tooltip bleibt nach dem Antippen
+    // stehen (Finger heben loest pointerleave aus) bis ausserhalb getippt wird.
+    hit.addEventListener('pointerleave', function (ev) { if (ev.pointerType === 'mouse') hide(); });
+    hideTip = hide;
+  }
+
+  var hideTip = function () {};
+  document.addEventListener('pointerdown', function (ev) {
+    if (!(ev.target instanceof SVGRectElement)) hideTip();
+  });
+
+  var rz = null;
+  window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(drawChart, 150); });
+
+  drawChart();
+  start();
+})();
+</script>
+</body>
+</html>
