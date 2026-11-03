@@ -28,10 +28,13 @@ directory, commands marked with *Router* are executed on the router
 |---|---|---|
 | Power control script (with JSON output) | `/usr/bin/zerofeed.sh` | `zerofeedjson.sh` |
 | Start/stop script (autostart) | `/etc/init.d/zerofeed` | `openwrt/zerofeed` |
+| Installation/check script | `/usr/bin/re_install_zerofeed.sh` | `openwrt/re_install_zerofeed.sh` |
 | Web page | `/www/solar/index.html` | `openwrt/solar/index.html` |
-| Symlink to the live data | `/www/solar/zerofeed.json` -> `/var/run/zerofeed.json` | created during installation |
-| Web server instance `solar` | `/etc/config/uhttpd` | created with `uci` |
-| Packages | `bash`, `curl`, `jq` | installed with `apk` |
+| Symlink to the live data | `/www/solar/zerofeed.json` -> `/var/run/zerofeed.json` | created by the installation script |
+| Web server instance `solar` | `/etc/config/uhttpd` | created by the installation script |
+| uhttpd configuration before zerofeed | `/etc/uhttpd-pre-zerofeed` | created by the installation script |
+| Default uhttpd configuration of the image | `/etc/uhttpd-default-zerofeed` | copy of `/rom/etc/config/uhttpd` |
+| Packages | `bash`, `curl`, `jq` | installed by the installation script |
 
 `/var/run/zerofeed.json` is located in RAM and is rewritten by the
 script after every control step. Until the script has written the file
@@ -42,110 +45,73 @@ control loop. The power values of the other inverters are read round
 robin (one inverter per control loop), which adds at most one OpenDTU
 request per control loop, regardless of the number of inverters.
 
+## The installation script
+
+`re_install_zerofeed.sh` performs the initial installation and checks
+(and repairs) the installation at any time, e.g. after an OpenWrt system
+upgrade. It can be executed multiple times. Every step prints `OK`,
+`FIXED`, `INFO` or `ERROR`:
+
+1. stop a running zerofeed process (and wait until it is gone)
+2. install the missing packages `bash`, `curl` and `jq` (`apk` or `opkg`)
+3. install `/usr/bin/zerofeed.sh`, `/etc/init.d/zerofeed` and
+   `/usr/bin/re_install_zerofeed.sh` from the uploaded files
+4. create `/www/solar`, install `index.html` and the symlink to the JSON
+   data
+5. create the uhttpd instance `solar` (HTTP port 81 redirected to HTTPS
+   port 8443 with the certificate of LuCI) and (re)start uhttpd when
+   needed
+6. save the uhttpd configuration before zerofeed and the default uhttpd
+   configuration of the image, report a changed default of the image
+7. add all files to `/etc/sysupgrade.conf` to keep them on a system
+   upgrade
+8. enable the autostart and start zerofeed
+
+The uploaded files are taken from the directory of the script (e.g.
+`/tmp`). The init script, the web page and the installation script are
+updated when the uploaded file differs. Your configured
+`/usr/bin/zerofeed.sh` and an existing uhttpd instance `solar` are not
+changed - unless the option `-f` is given:
+
+- `-f` overwrites `/usr/bin/zerofeed.sh` with the uploaded
+  `zerofeedjson.sh` (upload a configured file, as your configuration in
+  `/usr/bin/zerofeed.sh` gets lost) and recreates the uhttpd instance
+  `solar` with the default values.
+- `-u` accepts the current default uhttpd configuration of the image
+  after a reported change (see *New default uhttpd configuration*).
+
+The script uses `/bin/sh` as `bash` is not available after a system
+upgrade.
+
 ## Initial installation
 
-### Packages (Router)
-
-```
-apk update && apk add bash curl jq
-```
-
-### Copy the files (PC)
-
-`scp -O` is needed as OpenWrt does not provide an SFTP server by default.
-
-```
-scp -O zerofeedjson.sh root@<router-ip>:/usr/bin/zerofeed.sh
-scp -O openwrt/zerofeed root@<router-ip>:/etc/init.d/zerofeed
-ssh root@<router-ip> mkdir -p /www/solar
-scp -O openwrt/solar/index.html root@<router-ip>:/www/solar/index.html
-```
-
-### Permissions and configuration (Router)
-
-```
-chmod 755 /usr/bin/zerofeed.sh /etc/init.d/zerofeed
-```
-
 Adapt `SMIP`, `DTUIP`, `DTUUSER`, `DTUSN` and the array sizes in
-`/usr/bin/zerofeed.sh` to your environment (see section *Configuration*
-in the top level [README](../README.md)).
+`zerofeedjson.sh` to your environment (see section *Configuration* in the
+top level [README](../README.md)). You can also do this after the
+installation in `/usr/bin/zerofeed.sh` on the router.
 
-### Symlink for the web page (Router)
-
-```
-ln -sf /var/run/zerofeed.json /www/solar/zerofeed.json
-```
-
-### Web server instance `solar` (Router)
-
-The instance serves `/www/solar` via HTTPS on port 8443 with the
-certificate of the LuCI web interface. Requests to HTTP port 81 are
-redirected to HTTPS.
+Upload the files to `/tmp` on the router (*PC*). `scp -O` is needed as
+OpenWrt does not provide an SFTP server by default:
 
 ```
-uci batch <<'EOF'
-set uhttpd.solar=uhttpd
-add_list uhttpd.solar.listen_http='0.0.0.0:81'
-add_list uhttpd.solar.listen_http='[::]:81'
-add_list uhttpd.solar.listen_https='0.0.0.0:8443'
-add_list uhttpd.solar.listen_https='[::]:8443'
-set uhttpd.solar.redirect_https='1'
-set uhttpd.solar.cert='/etc/uhttpd.crt'
-set uhttpd.solar.key='/etc/uhttpd.key'
-set uhttpd.solar.home='/www/solar'
-set uhttpd.solar.rfc1918_filter='1'
-set uhttpd.solar.max_requests='3'
-commit uhttpd
-EOF
-/etc/init.d/uhttpd restart
+scp -O zerofeedjson.sh openwrt/zerofeed openwrt/solar/index.html openwrt/re_install_zerofeed.sh root@<router-ip>:/tmp/
 ```
 
-These commands are intended for a new installation. When the section
-`solar` already exists, `add_list` would add the ports twice. In this
-case edit `/etc/config/uhttpd` directly. The resulting section looks
-like this:
+Run the installation (*Router*):
 
 ```
-config uhttpd 'solar'
-	list listen_http '0.0.0.0:81'
-	list listen_http '[::]:81'
-	list listen_https '0.0.0.0:8443'
-	list listen_https '[::]:8443'
-	option redirect_https '1'
-	option cert '/etc/uhttpd.crt'
-	option key '/etc/uhttpd.key'
-	option home '/www/solar'
-	option rfc1918_filter '1'
-	option max_requests '3'
+sh /tmp/re_install_zerofeed.sh
 ```
 
-If you do not want HTTP at all, remove the `listen_http` lines and
-`redirect_https`.
+When `/usr/bin/zerofeed.sh` has been changed after the installation,
+restart zerofeed with `/etc/init.d/zerofeed stop` and
+`/etc/init.d/zerofeed start`.
 
-HTTPS needs the TLS library of uhttpd, which is installed when LuCI is
-already reachable via HTTPS. Check with `ls /lib/libustream-ssl.so`.
+## Update
 
-No firewall changes are needed for access from the LAN, as the LAN zone
-accepts connections to the router by default.
-
-### Start zerofeed and enable the autostart (Router)
-
-```
-/etc/init.d/zerofeed enable
-/etc/init.d/zerofeed start
-```
-
-### Check the installation (Router)
-
-```
-netstat -tln | grep -E ':(81|8443) '
-ps | grep [z]erofeed
-ls -l /www/solar /var/run/zerofeed.json
-curl -sI http://127.0.0.1:81/ | grep -i location
-```
-
-The last command shows the redirect from HTTP port 81 to HTTPS.
+Upload the new files to `/tmp` as for the initial installation and run
+`sh /tmp/re_install_zerofeed.sh` (or `sh /tmp/re_install_zerofeed.sh -f`
+to replace `/usr/bin/zerofeed.sh` as well).
 
 ## Usage
 
@@ -180,66 +146,89 @@ Hints for a phone used as permanent display:
 
 ## System upgrade (sysupgrade)
 
-### What is kept?
+The installation script has added all files to `/etc/sysupgrade.conf`.
+When the settings are kept on the upgrade ("Keep settings" in LuCI,
+which is the default, or `sysupgrade` without `-n`), the files and the
+uhttpd configuration are restored after the upgrade. Not restored are
+the packages `bash`, `curl` and `jq` and the autostart link.
 
-| Component | Kept on sysupgrade? |
-|---|---|
-| `/etc/config/uhttpd` (instance `solar`) | yes (all files in `/etc/config`) |
-| `/etc/uhttpd.crt`, `/etc/uhttpd.key` | yes (uhttpd configuration files) |
-| `/usr/bin/zerofeed.sh` (with your IPs and serial numbers) | **no**, unless listed in `/etc/sysupgrade.conf` |
-| `/etc/init.d/zerofeed` | **no**, unless listed in `/etc/sysupgrade.conf` |
-| Autostart link `/etc/rc.d/S95zerofeed` | **no**, unless listed in `/etc/sysupgrade.conf` |
-| `/www/solar/` (web page and symlink) | **no**, unless listed in `/etc/sysupgrade.conf` |
-| Packages `bash`, `curl`, `jq` | **no**, have to be installed again |
-| `/var/run/zerofeed.json` | located in RAM, rewritten by the script |
-
-### Preventive (once after the initial installation)
-
-Add the files to the list of files to be kept (Router):
-
-```
-cat >> /etc/sysupgrade.conf <<'EOF'
-/usr/bin/zerofeed.sh
-/etc/init.d/zerofeed
-/etc/rc.d/S95zerofeed
-/www/solar/
-EOF
-```
-
-Check which files would be kept on an upgrade:
+Before the upgrade you can check which files would be kept (*Router*):
 
 ```
 sysupgrade -l | grep -E 'zerofeed|solar|uhttpd'
 ```
 
-Keeping `/etc/rc.d/S95zerofeed` is optional. It saves the `enable` step
-after the upgrade. Without the packages the script does not run anyway.
-
-### On the upgrade
-
-- Keep the settings ("Keep settings" in LuCI, which is the default, or
-  `sysupgrade` without `-n` on the command line).
-- Optional: create a backup and copy it to the PC:
-  `sysupgrade -b /tmp/backup.tar.gz` (Router), then
-  `scp -O root@<router-ip>:/tmp/backup.tar.gz .` (PC).
-- Alternative for the packages: when building the image with the
-  OpenWrt Firmware Selector or `owut`, add `bash curl jq` to the package
-  list. Then the packages do not have to be installed after the upgrade.
-
-### After the upgrade (Router)
-
-Install the packages again (unless they are part of the image):
+After the upgrade run (*Router*):
 
 ```
-apk update && apk add bash curl jq
+re_install_zerofeed.sh
 ```
 
-Enable the autostart (if `/etc/rc.d/S95zerofeed` was not kept) and start
-zerofeed:
+The script installs the packages (an internet connection is needed),
+enables the autostart and starts zerofeed.
+
+### New default uhttpd configuration
+
+A kept `/etc/config/uhttpd` is not replaced by a new default
+configuration of the upgraded image. Therefore `re_install_zerofeed.sh`
+saves the default of the image (`/rom/etc/config/uhttpd`) as
+`/etc/uhttpd-default-zerofeed` on the installation. After a system
+upgrade it compares the default of the new image with this copy and
+reports the changed lines of the default as `INFO`, e.g.:
 
 ```
-/etc/init.d/zerofeed enable
-/etc/init.d/zerofeed start
+INFO   the default uhttpd configuration of the image has changed:
+INFO     - defaults: option days '730'
+INFO     + defaults: option days '397'
+INFO     (- old default, + new default; format 'section: option value')
+INFO     apply the changes to /etc/config/uhttpd if needed (e.g. with uci set)
+INFO     then accept the new default: re_install_zerofeed.sh -u
 ```
 
-Then run the checks from the initial installation.
+The configuration is not changed by the script. Apply the changes you
+want to take over, e.g. (*Router*):
+
+```
+uci set uhttpd.defaults.days='397'
+uci commit uhttpd
+```
+
+Then accept the new default, so that the change is not reported again:
+
+```
+re_install_zerofeed.sh -u
+```
+
+The script compares the defaults of the images and not your
+configuration with the default, as some options are added to the
+configuration by packages on the first boot (e.g. `ucode_prefix` and
+`ubus_prefix` of LuCI). Therefore copying `/rom/etc/config/uhttpd` to
+`/etc/config/uhttpd` is no good idea: LuCI would not work anymore.
+
+New default files from package upgrades (`/etc/config/uhttpd.apk-new`,
+`/etc/config/uhttpd-opkg`) are reported as `INFO` as well.
+
+The script shows the changed lines itself as the `diff` tool is not
+installed by default. For a complete comparison of the files install the
+package `diffutils`.
+
+### Packages in the image
+
+When building the image with the OpenWrt Firmware Selector or `owut`,
+you can add `bash curl jq` to the package list. Then only the autostart
+has to be enabled by `re_install_zerofeed.sh`.
+
+## Removal
+
+The configuration of uhttpd before the installation of zerofeed is
+saved in `/etc/uhttpd-pre-zerofeed` (*Router*):
+
+```
+/etc/init.d/zerofeed stop
+/etc/init.d/zerofeed disable
+cp /etc/uhttpd-pre-zerofeed /etc/config/uhttpd
+/etc/init.d/uhttpd restart
+rm -rf /usr/bin/zerofeed.sh /etc/init.d/zerofeed /usr/bin/re_install_zerofeed.sh /www/solar /etc/uhttpd-pre-zerofeed /etc/uhttpd-default-zerofeed
+```
+
+Remove the zerofeed entries from `/etc/sysupgrade.conf` as well.

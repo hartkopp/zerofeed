@@ -114,9 +114,10 @@ solar power, grid power, house consumption and the inverter values on a
 smartphone - including a large view for a phone used as permanent
 display in landscape orientation.
 
-The installation of the script, the web page and the web server instance
-as well as the steps for an OpenWrt system upgrade are described in
-[openwrt/README-json.md](openwrt/README-json.md).
+The installation script `openwrt/re_install_zerofeed.sh` installs the
+script, the web page and the web server instance and checks/repairs the
+installation after an OpenWrt system upgrade. See
+[openwrt/README-json.md](openwrt/README-json.md) for details.
 
 ## Installation
 
