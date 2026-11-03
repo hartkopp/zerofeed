@@ -345,9 +345,9 @@
     <section class="card live" aria-label="Wechselrichter">
       <h2>Wechselrichter</h2>
       <div id="inverters"></div>
-      <p class="note">Balken: Leistung bezogen auf die max. Leistung · Strich: gesetztes Limit ·
-        voller Balken: ohne Limit. Live-Messwert nur beim geregelten WR, gedrosselte WR
-        mit letztem Messwert; WR ohne Limit teilen sich den Rest der Gesamtleistung.</p>
+      <p class="note">Balken: gesetztes Limit bezogen auf die max. Leistung · voller Balken:
+        ohne Limit. Der geregelte WR wird live gemessen, die anderen WR reihum (Werte
+        einige Sekunden alt).</p>
     </section>
 
     <section class="card" aria-label="Verlauf">
@@ -535,38 +535,24 @@
     return e;
   }
 
-  // zerofeed.sh liest nur den gerade geregelten WR live aus (lastpwr der
-  // anderen WR ist ein Snapshot). WR ohne Limit teilen sich daher die
-  // Differenz zwischen Gesamtleistung und der Summe aus geregeltem WR
-  // (live) und gedrosselten WR (Snapshot) zu gleichen Teilen.
+  // zerofeed.sh liest den geregelten WR in jeder Runde live aus und die
+  // anderen WR reihum (pro Runde einer). Deren Werte sind daher einige
+  // Runden alt, aber echte Messwerte.
   function computeInverters(d) {
     var list = Array.isArray(d.dtus) ? d.dtus : [];
     var cur = num(d.currdtu);
-    var isOpen = function (inv) {
-      var max = num(inv.maxpwr);
-      return num(inv.id) !== cur && max > 0 && num(inv.setlim) >= max;
-    };
-    var openCount = 0, known = 0;
-    list.forEach(function (inv) {
-      if (isOpen(inv)) openCount++;
-      else known += num(inv.lastpwr);
-    });
-    var rest = num(d.solallpwr) - known;
-    var share = openCount ? Math.max(0, Math.round(rest / openCount)) : 0;
-
     return list.map(function (inv) {
       var max = num(inv.maxpwr), lim = num(inv.setlim);
       var active = num(inv.id) === cur;
-      var open = isOpen(inv);
       return {
         name: (inv.name && inv.name !== 'none') ? String(inv.name) : 'WR ' + (num(inv.id) + 1),
         max: max,
         lim: lim,
         active: active,
-        open: open,
-        unlimited: max > 0 && lim >= max,      // auch der geregelte WR kann am Maximum stehen
-        pwr: open ? share : num(inv.lastpwr),  // geregelt: live, gedrosselt: Snapshot
-        estimate: !active
+        open: !active && max > 0 && lim >= max, // nicht geregelt und ohne Limit
+        unlimited: max > 0 && lim >= max,       // auch der geregelte WR kann am Maximum stehen
+        pwr: num(inv.lastpwr),
+        estimate: false
       };
     });
   }
@@ -582,17 +568,18 @@
       var row = el('div', 'inv');
       var head = el('div', 'inv-head');
       head.appendChild(el('span', 'inv-name', v.name));
-      if (v.active) head.appendChild(el('span', 'badge', 'wird geregelt'));
+      // nur wenn der geregelte WR auch tatsaechlich ein Limit hat (wie in der Grossanzeige)
+      if (v.active && !v.unlimited) head.appendChild(el('span', 'badge', 'wird geregelt'));
       head.appendChild(el('span', 'inv-val', (v.estimate ? '≈ ' : '') + nf0.format(v.pwr) + ' W'));
       row.appendChild(head);
 
       var meter = el('div', 'meter');
       meter.setAttribute('role', 'img');
       meter.setAttribute('aria-label', v.name + ': ' + (v.estimate ? 'circa ' : '') + nf0.format(v.pwr) + ' W, ' + subText);
-      // ohne Limit (nicht geregelt): Balken voll
-      var fill = el('div', 'fill'); fill.style.width = (v.open ? 100 : pct(v.pwr)) + '%';
+      // Balken zeigt die Regelung: gesetztes Limit bezogen auf die max.
+      // Leistung, ohne Limit ist der Balken voll
+      var fill = el('div', 'fill'); fill.style.width = pct(v.lim) + '%';
       meter.appendChild(fill);
-      if (!v.open && v.lim > 0 && v.lim < v.max) { var mark = el('div', 'limit'); mark.style.left = pct(v.lim) + '%'; meter.appendChild(mark); }
       row.appendChild(meter);
 
       row.appendChild(el('div', 'inv-sub', subText));
