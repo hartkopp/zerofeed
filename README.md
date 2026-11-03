@@ -104,6 +104,20 @@ power consumption in the JSON tree to get the correct string for your smart
 meter for the power value (analogue to the '.StatusSNS.LK13BE.Power_curr'
 example) - and update this string in `getSMPWR()` for your local setup.
 
+## Installation Web-UI Display
+
+The script variant `zerofeedjson.sh` additionally writes the current
+state of the power control as JSON file to `/var/run/zerofeed.json`.
+An extra HTTPS instance of the OpenWrt web server `uhttpd` on the router
+(port 8443) serves this file together with a web page that displays the
+solar power, grid power, house consumption and the inverter values on a
+smartphone - including a large view for a phone used as permanent
+display in landscape orientation.
+
+The installation of the script, the web page and the web server instance
+as well as the steps for an OpenWrt system upgrade are described in
+[openwrt/README-json.md](openwrt/README-json.md).
+
 ## Installation
 
 The script can be executed without any installation on any Linux system,
