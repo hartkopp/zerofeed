@@ -15,6 +15,19 @@ The web page has two views:
   shows solar power, grid power and house consumption in big digits,
   readable from a distance of several meters
 
+Large view in light mode (left: grid power 0-80 W, right: feed-in) and
+dark mode (left: grid power 0-80 W, right: above 80 W) - the inverter
+"Balkon" is regulated, "Ost" runs without limit and "West" is throttled
+to its minimum:
+
+<img src="../img/webui-large-light-1.png" width="400"> <img src="../img/webui-large-light-2.png" width="400">
+
+<img src="../img/webui-large-dark-1.png" width="400"> <img src="../img/webui-large-dark-2.png" width="400">
+
+Normal view:
+
+<img src="../img/webui-normal-light.png" width="300">
+
 The instructions have been tested with OpenWrt 25.12, which uses `apk`
 as package manager.
 

@@ -119,6 +119,10 @@ script, the web page and the web server instance and checks/repairs the
 installation after an OpenWrt system upgrade. See
 [openwrt/README-json.md](openwrt/README-json.md) for details.
 
+<img src="img/webui-large-light-1.png" width="400"> <img src="img/webui-large-dark-2.png" width="400">
+
+<img src="img/webui-normal-light.png" width="250">
+
 ## Installation
 
 The script can be executed without any installation on any Linux system,
