@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Solar">
 <title>Zerofeed Solar</title>
+<script>
+  try { var t = localStorage.getItem('zerofeed-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='14' fill='%23eda100'/%3E%3Cg stroke='%23eda100' stroke-width='5' stroke-linecap='round'%3E%3Cpath d='M32 4v8M32 52v8M4 32h8M52 32h8M12 12l6 6M46 46l6 6M12 52l6-6M46 18l6-6'/%3E%3C/g%3E%3C/svg%3E">
 <!--
   Mobile Anzeige der zerofeed JSON Daten (zerofeedjson.sh -> /var/run/zerofeed.json)
@@ -39,6 +42,13 @@
     --critical:       #d03b3b;
     --badge-bg:       #e6f0fc;
     --badge-text:     #1c5cab;
+    /* Grossanzeige */
+    --big-bg:         #e9e8e4;
+    --big-field:      #ffffff;
+    --sig-green:      #34c759;
+    --sig-yellow:     #ffc21a;
+    --sig-orange:     #ff8a1f;
+    --sig-red:        #f2554a;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -57,6 +67,12 @@
       --meter-track:    #163a66;
       --badge-bg:       #16365e;
       --badge-text:     #b7d3f6;
+      --big-bg:         #0b0b0a;
+      --big-field:      #1a1a19;
+      --sig-green:      #4cd964;
+      --sig-yellow:     #ffd23f;
+      --sig-orange:     #ff9a3c;
+      --sig-red:        #ff6b5e;
     }
   }
   :root[data-theme="dark"] {
@@ -75,6 +91,12 @@
     --meter-track:    #163a66;
     --badge-bg:       #16365e;
     --badge-text:     #b7d3f6;
+    --big-bg:         #0b0b0a;
+    --big-field:      #1a1a19;
+    --sig-green:      #4cd964;
+    --sig-yellow:     #ffd23f;
+    --sig-orange:     #ff9a3c;
+    --sig-red:        #ff6b5e;
   }
 
   * { box-sizing: border-box; }
@@ -94,7 +116,10 @@
   h2 { font-size: 15px; font-weight: 600; margin: 0; }
   .sub { font-size: 13px; color: var(--text-muted); margin: 2px 0 0; }
 
-  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+  .hdr-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); white-space: nowrap; min-width: 0; }
+  .status #statusText { overflow: hidden; text-overflow: ellipsis; }
+  .status .dot { flex: none; }
   .status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
   .status[data-state="good"] .dot { background: var(--good); }
   .status[data-state="warning"] .dot { background: var(--warning); }
@@ -175,13 +200,121 @@
   dd { margin: 0; text-align: right; font-weight: 600; }
 
   footer { text-align: center; font-size: 12px; color: var(--text-muted); margin: 4px 0 8px; }
+
+  /* Buttons */
+  .btn {
+    font: inherit; font-size: 13px; line-height: 1.2; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 11px; cursor: pointer; white-space: nowrap; flex: none;
+  }
+  .btn:active { opacity: .7; }
+  .btn.icon { padding: 6px 10px; }
+
+  /* ---------- Grossanzeige (index.html#gross) ---------- */
+  #big { display: none; }
+  body.big { padding: 0; overflow: hidden; background: var(--big-bg); }
+  body.big .wrap { display: none; }
+  body.big #big { display: grid; }
+  #big {
+    position: fixed; inset: 0;
+    height: 100vh; height: 100dvh;
+    padding: max(2vmin, env(safe-area-inset-top)) max(2vmin, env(safe-area-inset-right))
+             max(2vmin, env(safe-area-inset-bottom)) max(2vmin, env(safe-area-inset-left));
+    gap: 2vmin;
+    grid-template-columns: 1.15fr 1fr;
+    grid-template-rows: 1.75fr 1fr;
+    grid-template-areas: "solar grid" "solar use";
+  }
+  @media (orientation: portrait) {
+    #big { grid-template-columns: 1fr; grid-template-rows: 1.5fr 1.25fr .8fr; grid-template-areas: "solar" "grid" "use"; }
+  }
+  #bfSolar { grid-area: solar; }
+  #bfGrid  { grid-area: grid; }
+  #bfUse   { grid-area: use; }
+
+  /* Hellmodus: farbige Flaeche, schwarze Ziffern */
+  .bf {
+    position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
+    border-radius: 3vmin; padding: 2.2vmin 3vmin; border: .7vmin solid transparent;
+    background: var(--sig); color: #0b0b0b;
+  }
+  .bf[data-state="green"]   { --sig: var(--sig-green); }
+  .bf[data-state="yellow"]  { --sig: var(--sig-yellow); }
+  .bf[data-state="orange"]  { --sig: var(--sig-orange); }
+  .bf[data-state="red"]     { --sig: var(--sig-red); }
+  .bf[data-state="neutral"] { --sig: var(--big-field); border-color: var(--border); }
+
+  /* Dunkelmodus: dunkles Feld, farbige Ziffern + Rahmen */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .bf {
+      background: var(--big-field); color: var(--sig); border-color: var(--sig);
+      box-shadow: inset 0 0 0 .7vmin var(--sig); /* doppelte Umrandung ohne Einfluss aufs Layout */
+    }
+    :root:not([data-theme="light"]) .bf[data-state="neutral"] { --sig: var(--text-primary); border-color: var(--border); box-shadow: inset 0 0 0 .7vmin var(--border); }
+    :root:not([data-theme="light"]) .bf-head { color: var(--text-secondary); }
+    :root:not([data-theme="light"]) .bf-inv { color: var(--text-primary); }
+    :root:not([data-theme="light"]) .bf-inv .n { color: var(--text-secondary); }
+    :root:not([data-theme="light"]) .bf-inv.active .n { color: var(--text-primary); }
+    :root:not([data-theme="light"]) .bf-inv .tri { fill: var(--sig); }
+  }
+  :root[data-theme="dark"] .bf {
+    background: var(--big-field); color: var(--sig); border-color: var(--sig);
+    box-shadow: inset 0 0 0 .7vmin var(--sig); /* doppelte Umrandung ohne Einfluss aufs Layout */
+  }
+  :root[data-theme="dark"] .bf[data-state="neutral"] { --sig: var(--text-primary); border-color: var(--border); box-shadow: inset 0 0 0 .7vmin var(--border); }
+  :root[data-theme="dark"] .bf-head { color: var(--text-secondary); }
+  :root[data-theme="dark"] .bf-inv { color: var(--text-primary); }
+  :root[data-theme="dark"] .bf-inv .n { color: var(--text-secondary); }
+  :root[data-theme="dark"] .bf-inv.active .n { color: var(--text-primary); }
+  :root[data-theme="dark"] .bf-inv .tri { fill: var(--sig); }
+
+  .bf-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 2vmin;
+    font-size: 12vmin; font-weight: 600; line-height: 1.1; white-space: nowrap;
+  }
+  .bf-head > span:first-child { flex: none; }
+  .bf-sub { font-size: 9.2vmin; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .bf-house { display: inline-block; width: .78em; height: .78em; margin-left: .18em; vertical-align: -.04em; }
+  .bf-val { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .bf-num { font-weight: 700; line-height: 1; white-space: nowrap; letter-spacing: -0.02em; }
+
+  /* feste Hoehe: die Gesamtleistung darueber behaelt ihre Schriftgroesse */
+  .bf-invs {
+    display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+    column-gap: 2.5vmin; height: 27vmin; align-content: center;
+  }
+  .bf-inv { min-width: 0; text-align: center; }
+  .bf-inv .n {
+    display: flex; align-items: center; justify-content: center; gap: .22em;
+    font-size: 6.8vmin; font-weight: 600; line-height: 1.15; white-space: nowrap;
+    margin-bottom: 2.4vmin;
+  }
+  .bf-inv .tri { flex: none; width: .7em; height: .85em; fill: currentColor; }
+  .bf-inv .v { font-size: 15vmin; font-weight: 700; line-height: 1; white-space: nowrap; }
+  .bf-inv .v .u { font-size: .5em; font-weight: 600; }
+
+  .bctl {
+    position: fixed; z-index: 5; display: flex; align-items: center; gap: 6px;
+    top: max(2.5vmin, env(safe-area-inset-top)); right: max(2.5vmin, env(safe-area-inset-right));
+    transition: opacity .3s;
+  }
+  .bctl.hidden { opacity: 0; pointer-events: none; }
+  .bctl .info {
+    font-size: 11px; color: var(--text-secondary); background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 9px; white-space: nowrap;
+  }
+  .bctl .info:empty { display: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>Solar</h1>
-    <div id="status" class="status" data-state="" role="status"><span class="dot"></span><span id="statusText">Lade …</span></div>
+    <div class="hdr-right">
+      <div id="status" class="status" data-state="" role="status"><span class="dot"></span><span id="statusText">Lade …</span></div>
+      <button class="btn icon" id="btnTheme" type="button"></button>
+      <button class="btn" id="btnBig" type="button">Großanzeige</button>
+    </div>
   </header>
 
   <main id="main">
@@ -248,6 +381,27 @@
   <footer id="footer">&nbsp;</footer>
 </div>
 
+<div id="big" aria-label="Großanzeige">
+  <section class="bf" id="bfSolar" data-state="neutral">
+    <div class="bf-head"><span>Solar</span><span class="bf-sub" id="bSolarSub"></span></div>
+    <div class="bf-val"><span class="bf-num" id="bSolar">–</span></div>
+    <div class="bf-invs" id="bInvs"></div>
+  </section>
+  <section class="bf" id="bfGrid" data-state="neutral">
+    <div class="bf-head"><span id="bGridLabel">Netz</span><span class="bf-sub" id="bGridSub"></span></div>
+    <div class="bf-val"><span class="bf-num" id="bGrid">–</span></div>
+  </section>
+  <section class="bf" id="bfUse" data-state="neutral" aria-label="Verbrauch">
+    <div class="bf-val"><span class="bf-num" id="bUse">–</span></div>
+  </section>
+  <div class="bctl" id="bctl">
+    <span class="info" id="wakeInfo"></span>
+    <button class="btn" id="btnFull" type="button">Vollbild</button>
+    <button class="btn icon" id="btnTheme2" type="button"></button>
+    <button class="btn" id="btnNormal" type="button">Normal</button>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -292,6 +446,7 @@
   pruneHist();
 
   var lastTs = null;
+  var lastData = null, lastDate = null, pollFailed = false;
 
   // ---------- Status ----------
   function setStatus(state, text) {
@@ -309,11 +464,15 @@
       .catch(function () {
         $('main').classList.add('stale');
         setStatus('critical', xhrStatus === 404 ? 'Keine Daten (Skript aktiv?)' : 'Keine Verbindung');
+        pollFailed = true;
+        renderBig(lastData, lastDate, true);
       });
   }
   function start() { stop(); poll(); timer = setInterval(poll, POLL_MS); }
   function stop() { if (timer) clearInterval(timer); timer = null; }
-  document.addEventListener('visibilitychange', function () { document.hidden ? stop() : start(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) stop(); else { start(); requestWake(); }
+  });
 
   // ---------- Darstellung ----------
   function render(d) {
@@ -347,6 +506,10 @@
     $('meterOut').textContent = nf1.format(num(d.smpwrout)) + ' kWh';
 
     renderInverters(d);
+    lastData = d;
+    lastDate = ts;
+    pollFailed = false;
+    renderBig(d, ts, stale);
 
     $('footer').textContent = 'Stand: ' + (d.timestamp || '–');
 
@@ -357,8 +520,9 @@
         hist.push({ t: t, s: solar, n: grid });
         pruneHist();
         saveHist();
-        // nur bei neuen Daten neu zeichnen (Tooltip bleibt sonst stehen)
-        drawChart();
+        // nur bei neuen Daten neu zeichnen (Tooltip bleibt sonst stehen),
+        // in der Grossanzeige ist das Diagramm nicht sichtbar
+        if (!isBig()) drawChart();
         renderTable();
       }
     }
@@ -371,16 +535,13 @@
     return e;
   }
 
-  function renderInverters(d) {
-    var box = $('inverters');
-    box.textContent = '';
+  // zerofeed.sh liest nur den gerade geregelten WR live aus (lastpwr der
+  // anderen WR ist ein Snapshot). WR ohne Limit teilen sich daher die
+  // Differenz zwischen Gesamtleistung und der Summe aus geregeltem WR
+  // (live) und gedrosselten WR (Snapshot) zu gleichen Teilen.
+  function computeInverters(d) {
     var list = Array.isArray(d.dtus) ? d.dtus : [];
     var cur = num(d.currdtu);
-
-    // zerofeed.sh liest nur den gerade geregelten WR live aus (lastpwr der
-    // anderen WR ist ein Snapshot). WR ohne Limit teilen sich daher die
-    // Differenz zwischen Gesamtleistung und der Summe aus geregeltem WR
-    // (live) und gedrosselten WR (Snapshot) zu gleichen Teilen.
     var isOpen = function (inv) {
       var max = num(inv.maxpwr);
       return num(inv.id) !== cur && max > 0 && num(inv.setlim) >= max;
@@ -393,53 +554,51 @@
     var rest = num(d.solallpwr) - known;
     var share = openCount ? Math.max(0, Math.round(rest / openCount)) : 0;
 
-    list.forEach(function (inv) {
-      var name = (inv.name && inv.name !== 'none') ? String(inv.name) : 'WR ' + (num(inv.id) + 1);
+    return list.map(function (inv) {
       var max = num(inv.maxpwr), lim = num(inv.setlim);
       var active = num(inv.id) === cur;
       var open = isOpen(inv);
-      var pwr, fillPct, estimate, subText;
-      var pct = function (v) { return max > 0 ? Math.max(0, Math.min(100, v / max * 100)) : 0; };
+      return {
+        name: (inv.name && inv.name !== 'none') ? String(inv.name) : 'WR ' + (num(inv.id) + 1),
+        max: max,
+        lim: lim,
+        active: active,
+        open: open,
+        unlimited: max > 0 && lim >= max,      // auch der geregelte WR kann am Maximum stehen
+        pwr: open ? share : num(inv.lastpwr),  // geregelt: live, gedrosselt: Snapshot
+        estimate: !active
+      };
+    });
+  }
 
-      if (active) {
-        // Live-Messwert
-        pwr = num(inv.lastpwr);
-        fillPct = pct(pwr);
-        estimate = false;
-        subText = (max > 0 && lim >= max ? 'ohne Limit' : 'Limit ' + nf0.format(lim) + ' W') + ' · max. ' + nf0.format(max) + ' W';
-      } else if (open) {
-        // ohne Limit: Anteil an der Differenz, Balken voll
-        pwr = share;
-        fillPct = 100;
-        estimate = true;
-        subText = 'ohne Limit · max. ' + nf0.format(max) + ' W';
-      } else {
-        // auf Limit gedrosselt: letzter Snapshot
-        pwr = num(inv.lastpwr);
-        fillPct = pct(pwr);
-        estimate = true;
-        subText = 'Limit ' + nf0.format(lim) + ' W · max. ' + nf0.format(max) + ' W';
-      }
+  function renderInverters(d) {
+    var box = $('inverters');
+    box.textContent = '';
+    var invs = computeInverters(d);
+    invs.forEach(function (v) {
+      var pct = function (x) { return v.max > 0 ? Math.max(0, Math.min(100, x / v.max * 100)) : 0; };
+      var subText = (v.unlimited ? 'ohne Limit' : 'Limit ' + nf0.format(v.lim) + ' W') + ' · max. ' + nf0.format(v.max) + ' W';
 
       var row = el('div', 'inv');
       var head = el('div', 'inv-head');
-      head.appendChild(el('span', 'inv-name', name));
-      if (active) head.appendChild(el('span', 'badge', 'wird geregelt'));
-      head.appendChild(el('span', 'inv-val', (estimate ? '≈ ' : '') + nf0.format(pwr) + ' W'));
+      head.appendChild(el('span', 'inv-name', v.name));
+      if (v.active) head.appendChild(el('span', 'badge', 'wird geregelt'));
+      head.appendChild(el('span', 'inv-val', (v.estimate ? '≈ ' : '') + nf0.format(v.pwr) + ' W'));
       row.appendChild(head);
 
       var meter = el('div', 'meter');
       meter.setAttribute('role', 'img');
-      meter.setAttribute('aria-label', name + ': ' + (estimate ? 'circa ' : '') + nf0.format(pwr) + ' W, ' + subText);
-      var fill = el('div', 'fill'); fill.style.width = fillPct + '%';
+      meter.setAttribute('aria-label', v.name + ': ' + (v.estimate ? 'circa ' : '') + nf0.format(v.pwr) + ' W, ' + subText);
+      // ohne Limit (nicht geregelt): Balken voll
+      var fill = el('div', 'fill'); fill.style.width = (v.open ? 100 : pct(v.pwr)) + '%';
       meter.appendChild(fill);
-      if (!open && lim > 0 && lim < max) { var mark = el('div', 'limit'); mark.style.left = pct(lim) + '%'; meter.appendChild(mark); }
+      if (!v.open && v.lim > 0 && v.lim < v.max) { var mark = el('div', 'limit'); mark.style.left = pct(v.lim) + '%'; meter.appendChild(mark); }
       row.appendChild(meter);
 
       row.appendChild(el('div', 'inv-sub', subText));
       box.appendChild(row);
     });
-    if (!list.length) box.appendChild(el('p', 'note', 'Keine Wechselrichterdaten.'));
+    if (!invs.length) box.appendChild(el('p', 'note', 'Keine Wechselrichterdaten.'));
   }
 
   function renderTable() {
@@ -572,10 +731,237 @@
     if (!(ev.target instanceof SVGRectElement)) hideTip();
   });
 
+  // ---------- Grossanzeige ----------
+  // Zahl + kleines "W"; Schriftgroesse passend zum Feld. Die Breite wird an
+  // einem Referenztext gemessen, damit die Schrift nicht bei jeder Aenderung springt.
+  var nfBig = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0, useGrouping: false });
+  var BIG_REF = '8888';
+  // Haus-Piktogramm hinter der Verbrauchszahl
+  function houseIcon() {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', 'bf-house');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = '<path d="M2.5 11.5L12 3.5l9.5 8M5.5 9v11.5h13V9M10 20.5v-6h4v6" fill="none" ' +
+      'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+    return svg;
+  }
+  function triangle(right) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 10 12');
+    svg.setAttribute('class', 'tri');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.innerHTML = right ? '<path d="M1 1l8 5-8 5z"/>' : '<path d="M9 1L1 6l8 5z"/>';
+    return svg;
+  }
+  // WR-Namen und -Werte: je eine gemeinsame Schriftgroesse, verkleinert
+  // falls ein Eintrag nicht in seine Spalte passt
+  function fitRow(sel) {
+    var es = Array.prototype.slice.call($('bInvs').querySelectorAll(sel));
+    if (!es.length) return;
+    es.forEach(function (e) { e.style.fontSize = ''; });
+    var k = 1;
+    es.forEach(function (e) {
+      var cw = e.parentNode.clientWidth, sw = e.scrollWidth;
+      if (cw && sw > cw) k = Math.min(k, cw / sw);
+    });
+    if (k < 1) {
+      var base = parseFloat(getComputedStyle(es[0]).fontSize);
+      es.forEach(function (e) { e.style.fontSize = Math.floor(base * k * 0.97) + 'px'; });
+    }
+  }
+  function fitInvs() { fitRow('.n'); fitRow('.v'); }
+  function setNum(elm, text) {
+    elm.textContent = text;
+  }
+  // groesste Schrift, mit der Text und Referenztext ins Feld passen
+  function calcFit(elm) {
+    var box = elm.parentNode, H = box.clientHeight, W = box.clientWidth;
+    if (!H || !W || !elm.firstChild) return Infinity;
+    elm.style.fontSize = '100px';
+    var wReal = elm.getBoundingClientRect().width;
+    var txt = elm.firstChild.nodeValue;
+    elm.firstChild.nodeValue = BIG_REF;
+    var wRef = elm.getBoundingClientRect().width;
+    elm.firstChild.nodeValue = txt;
+    return Math.min(H * 0.95, 100 * W * 0.96 / Math.max(wReal, wRef, 1));
+  }
+  // alle Felder einer Gruppe bekommen dieselbe Schriftgroesse
+  function fitGroup(ids) {
+    var fs = Math.min.apply(null, ids.map(function (id) { return calcFit($(id)); }));
+    if (!isFinite(fs)) return;
+    ids.forEach(function (id) { $(id).style.fontSize = Math.max(10, Math.floor(fs)) + 'px'; });
+  }
+  function refitBig() {
+    if (!isBig()) return;
+    fitInvs();
+    fitGroup(['bSolar']);
+    fitGroup(['bGrid']);
+    fitGroup(['bUse']);
+  }
+
+  function renderBig(d, ts, stale) {
+    if (!d) {
+      // noch keine Daten (z. B. Seite waehrend eines Router-Neustarts geladen)
+      $('bfSolar').setAttribute('data-state', 'red');
+      $('bSolarSub').textContent = 'offline';
+      var nb = $('bInvs');
+      nb.textContent = '';
+      nb.style.setProperty('--n', 1);
+      var nd = el('div', 'bf-inv');
+      nd.appendChild(el('div', 'n', '\u00a0'));
+      nd.appendChild(el('div', 'v', 'keine Daten'));
+      nb.appendChild(nd);
+      $('bfGrid').setAttribute('data-state', 'neutral');
+      $('bGridLabel').textContent = 'Netz';
+      setNum($('bGrid'), '–');
+      $('bfUse').setAttribute('data-state', 'neutral');
+      setNum($('bUse'), '–');
+      $('bUse').appendChild(houseIcon());
+      setNum($('bSolar'), '0');
+      refitBig();
+      return;
+    }
+    var solar = num(d.solallpwr), grid = num(d.smpwr);
+    var offline = stale || solar <= 0;
+    var invs = computeInverters(d);
+    var allOpen = invs.length > 0 && invs.every(function (v) { return v.unlimited; });
+
+    // Solar: alle offen gruen, geregelt gelb, offline rot mit 0 W
+    $('bfSolar').setAttribute('data-state', offline ? 'red' : (allOpen ? 'green' : 'yellow'));
+    $('bSolarSub').textContent = offline ? 'offline' : (allOpen ? 'ohne Limit' : 'geregelt');
+    var box = $('bInvs');
+    box.textContent = '';
+    // offline: statt der WR-Werte die Uhrzeit der letzten Daten
+    if (offline) {
+      box.style.setProperty('--n', 1);
+      var st = el('div', 'bf-inv');
+      st.appendChild(el('div', 'n', '\u00a0'));
+      st.appendChild(el('div', 'v', ts ? 'Stand ' + hhmm(ts) : 'keine Daten'));
+      box.appendChild(st);
+    } else box.style.setProperty('--n', Math.max(1, invs.length));
+    if (!offline) invs.forEach(function (v) {
+      var regulating = v.active && !v.unlimited && !offline;
+      var c = el('div', 'bf-inv' + (regulating ? ' active' : ''));
+      // geregelter WR: |> Name <|
+      var n = el('div', 'n');
+      if (regulating) n.appendChild(triangle(true));
+      n.appendChild(el('span', 'nm', v.name));
+      if (regulating) n.appendChild(triangle(false));
+      c.appendChild(n);
+      var val = el('div', 'v');
+      if (offline) val.textContent = '–';
+      else val.textContent = nfBig.format(v.pwr);
+      c.appendChild(val);
+      box.appendChild(c);
+    });
+
+    // Netz: Einspeisung rot, 0-80 W gruen, ueber 80 W gelb
+    $('bfGrid').setAttribute('data-state', grid < 0 ? 'red' : (grid <= 80 ? 'green' : 'yellow'));
+    $('bGridLabel').textContent = grid < 0 ? 'Einspeisung' : 'Netzbezug';
+    setNum($('bGrid'), grid < 0 ? '−' + nfBig.format(-grid) : nfBig.format(grid));
+
+    // Verbrauch: ab 1000 W orange, sonst neutral
+    var use = Math.max(0, solar + grid);
+    $('bfUse').setAttribute('data-state', use >= 1000 ? 'orange' : 'neutral');
+    setNum($('bUse'), nfBig.format(use));
+    $('bUse').appendChild(houseIcon());
+
+    setNum($('bSolar'), offline ? '0' : nfBig.format(solar));
+    refitBig();
+  }
+
+  // ---------- Ansicht umschalten ----------
+  function isBig() { return location.hash === '#gross'; }
+  function applyView() {
+    var big = isBig();
+    document.body.classList.toggle('big', big);
+    if (big && (lastData || pollFailed)) { renderBig(lastData, lastDate, lastDate ? (Date.now() - lastDate.getTime()) / 1000 > STALE_S : true); refitBig(); }
+    if (big) { refitBig(); showCtl(); requestWake(); }
+    else { releaseWake(); exitFull(); drawChart(); }
+  }
+  window.addEventListener('hashchange', applyView);
+  $('btnBig').addEventListener('click', function () { location.hash = 'gross'; enterFull(); });
+  $('btnNormal').addEventListener('click', function () {
+    history.replaceState(null, '', location.pathname + location.search);
+    applyView();
+  });
+
+  // Vollbild (Android/Chrome; iPhone kann das nicht -> Button ausblenden)
+  var fsOk = !!(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+  function enterFull() { if (fsOk && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(function () {}); }
+  function exitFull() { if (fsOk && document.fullscreenElement) document.exitFullscreen().catch(function () {}); }
+  function updFullBtn() {
+    $('btnFull').style.display = fsOk ? '' : 'none';
+    $('btnFull').textContent = document.fullscreenElement ? 'Vollbild aus' : 'Vollbild';
+  }
+  $('btnFull').addEventListener('click', function () { document.fullscreenElement ? exitFull() : enterFull(); });
+  document.addEventListener('fullscreenchange', updFullBtn);
+  updFullBtn();
+
+  // Bedienelemente blenden sich nach 5 s aus; Tippen zeigt sie wieder
+  var ctlTimer = null;
+  function showCtl() {
+    $('bctl').classList.remove('hidden');
+    clearTimeout(ctlTimer);
+    ctlTimer = setTimeout(function () { $('bctl').classList.add('hidden'); }, 5000);
+  }
+  $('big').addEventListener('pointerdown', showCtl);
+
+  // Display anlassen (Wake Lock, nur mit HTTPS verfuegbar)
+  var wake = null;
+  function setWake(t) { $('wakeInfo').textContent = t; }
+  function requestWake() {
+    if (!isBig() || document.hidden || wake) return;
+    if (!('wakeLock' in navigator)) {
+      setWake(window.isSecureContext ? 'Wake Lock nicht unterstützt' : 'Display-Sperre: nur mit HTTPS verhinderbar');
+      return;
+    }
+    navigator.wakeLock.request('screen').then(function (l) {
+      wake = l;
+      setWake('Display bleibt an');
+      l.addEventListener('release', function () { wake = null; });
+    }).catch(function (e) { setWake('Wake Lock: ' + ((e && e.name) || 'Fehler')); });
+  }
+  function releaseWake() { if (wake) { wake.release().catch(function () {}); wake = null; } }
+
+  // ---------- Hell/Dunkel ----------
+  var THEME_KEY = 'zerofeed-theme';
+  var darkMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function effTheme() {
+    var t = document.documentElement.getAttribute('data-theme');
+    return t || (darkMq && darkMq.matches ? 'dark' : 'light');
+  }
+  function updThemeUi() {
+    var dark = effTheme() === 'dark';
+    ['btnTheme', 'btnTheme2'].forEach(function (id) {
+      $(id).textContent = dark ? '☀' : '☾';
+      $(id).setAttribute('aria-label', dark ? 'Hellmodus' : 'Dunkelmodus');
+      $(id).title = dark ? 'Hellmodus' : 'Dunkelmodus';
+    });
+    var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    Array.prototype.forEach.call(document.querySelectorAll('meta[name="theme-color"]'), function (m) { m.setAttribute('content', bg); });
+  }
+  function toggleTheme() {
+    var next = effTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* egal */ }
+    updThemeUi();
+  }
+  $('btnTheme').addEventListener('click', toggleTheme);
+  $('btnTheme2').addEventListener('click', toggleTheme);
+  if (darkMq && darkMq.addEventListener) darkMq.addEventListener('change', updThemeUi);
+  updThemeUi();
+
   var rz = null;
-  window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(drawChart, 150); });
+  window.addEventListener('resize', function () {
+    clearTimeout(rz);
+    rz = setTimeout(function () { if (isBig()) refitBig(); else drawChart(); }, 150);
+  });
+  if (window.ResizeObserver) new ResizeObserver(function () { refitBig(); }).observe($('big'));
 
   drawChart();
+  applyView();
   start();
 })();
 </script>
