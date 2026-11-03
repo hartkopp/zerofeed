@@ -80,6 +80,10 @@ DTUSETLIMPWR=(0 0 0)
 MAXDTUIDX=$((${#DTUSN[@]} - 1))
 CURRDTU=0
 
+# round robin index for reading the power of one non-controlled inverter
+# per control loop (only used for the status output / JSON data)
+POLLDTU=0
+
 # the minimum inverter max power (sanity check)
 MINDTUPWR=100
 
@@ -114,6 +118,38 @@ getSOLPWR()
     fi
 }
 
+# get power from one other (non-controlled) inverter per call (round robin)
+# -> max. one additional OpenDTU request per control loop, regardless of
+#    the number of inverters
+getOTHERPWR()
+{
+    if [ "$MAXDTUIDX" -eq "0" ]
+    then
+	return
+    fi
+
+    ((POLLDTU+=1))
+    if [ "$POLLDTU" -gt "$MAXDTUIDX" ]
+    then
+	POLLDTU=0
+    fi
+    if [ "$POLLDTU" -eq "$CURRDTU" ]
+    then
+	((POLLDTU+=1))
+	if [ "$POLLDTU" -gt "$MAXDTUIDX" ]
+	then
+	    POLLDTU=0
+	fi
+    fi
+
+    OTHERPWR=`curl -s http://$DTUIP/api/livedata/status?inv=${DTUSN[$POLLDTU]} | jq '.inverters[].AC."0".Power.v'`
+    if [ -n "$OTHERPWR" ] && [ "$OTHERPWR" != "null" ]
+    then
+	# remove fraction to make it an integer
+	DTULASTSOLPWR[$POLLDTU]=${OTHERPWR%.*}
+    fi
+}
+
 waitDTUpowerUp()
 {
     NOPOWER=1
@@ -138,7 +174,20 @@ waitDTUpowerUp()
 	fi
 	if [ "$NOPOWER" -eq "1" ]
 	then
-	    sleep 60
+	    # keep the status output up to date while waiting (e.g. at night):
+	    # read the smart meter every second and check the inverters (OpenDTU)
+	    # only once per minute
+	    WAITCNT=60
+	    while [ "$WAITCNT" -gt "0" ]
+	    do
+		getSMPWR
+		if [ -n "$SMPWR" ]
+		then
+		    printState
+		fi
+		sleep 1
+		((WAITCNT-=1))
+	    done
 	fi
     done
 }
@@ -152,6 +201,19 @@ getDTUNAME()
     fi
 }
 
+
+# get the names of all inverters already at the start, e.g. for the status
+# output while waiting for the inverters at night (the inverter list of the
+# OpenDTU is also available when the inverters are offline)
+getDTUNAMES()
+{
+    CURRDTU=0
+    while [ "$CURRDTU" -le "$MAXDTUIDX" ]
+    do
+	getDTUNAME
+	((CURRDTU+=1))
+    done
+}
 
 getDTUMAXPWR()
 {
@@ -216,8 +278,16 @@ printState()
     JSONDTU=0
     while [ "$JSONDTU" -le "$MAXDTUIDX" ]
     do
+        # inverter name as JSON string (names from jq are already quoted,
+        # the default names before getDTUNAME() are not)
+        JSONNAME=${DTUNAMES[$JSONDTU]:-none}
+        case "$JSONNAME" in
+            \"*) ;;
+            *) JSONNAME="\"$JSONNAME\"" ;;
+        esac
+
         # create inverter item content
-        DTU_JSON_ITEMS+=("{\"id\": $JSONDTU, \"serno\": ${DTUSN[$JSONDTU]:-0}, \"name\": ${DTUNAMES[$JSONDTU]:-\"none\"}, \"lim\": ${DTULIM[$JSONDTU]:-0}, \"setlim\": ${DTUSETLIMPWR[$JSONDTU]:-0}, \"lastpwr\": ${DTULASTSOLPWR[$JSONDTU]:-0}, \"maxpwr\": ${DTUMAXP[$JSONDTU]:-0}, \"minpwr\": ${DTUMINP[$JSONDTU]:-0}}")
+        DTU_JSON_ITEMS+=("{\"id\": $JSONDTU, \"serno\": ${DTUSN[$JSONDTU]:-0}, \"name\": $JSONNAME, \"lim\": ${DTULIM[$JSONDTU]:-0}, \"setlim\": ${DTUSETLIMPWR[$JSONDTU]:-0}, \"lastpwr\": ${DTULASTSOLPWR[$JSONDTU]:-0}, \"maxpwr\": ${DTUMAXP[$JSONDTU]:-0}, \"minpwr\": ${DTUMINP[$JSONDTU]:-0}}")
         ((JSONDTU+=1))
     done
 
@@ -257,6 +327,7 @@ EOF" > "$ZEROFEED_JSON_TMP" 2>/dev/null
 # run initialization and solar power control forever
 while [ true ]
 do
+    getDTUNAMES
     CURRDTU=0
     getSOLPWR
     getSMPWR
@@ -430,6 +501,12 @@ do
 	# check for inverter change
 	if [ "$SOLABSLIMIT" -eq "${DTUMINP[$CURRDTU]}" ] && [ "$CURRDTU" -gt "0" ]
 	then
+	    # the last power value was measured before setting the minimum
+	    # limit -> the inverter can not deliver more than its limit now
+	    if [ "${DTULASTSOLPWR[$CURRDTU]}" -gt "${DTUMINP[$CURRDTU]}" ]
+	    then
+		DTULASTSOLPWR[$CURRDTU]=${DTUMINP[$CURRDTU]}
+	    fi
 	    ((CURRDTU-=1))
 	    SOLLASTLIMIT=${DTUMAXP[$CURRDTU]}
 	    # set a default value when SMPWRTHRESMIN < SOLPWR < SMPWRTHRESMAX
@@ -442,6 +519,9 @@ do
 		 SOLABSLIMIT=${DTUMINP[$CURRDTU]}
 	     fi
 	fi
+
+	# update the power value of one other inverter for the status output
+	getOTHERPWR
 
 	# generate CSV capable status output
 	printState
@@ -461,6 +541,13 @@ do
 	# restart whole process
 	if [ -z "$SOLPWR" ] || [ "$SOLPWR" -eq "0" ] || [ -z "$SMPWR" ]
 	then
+	    # no solar power anymore (e.g. in the evening): write the state
+	    # with the zero power value of the controlled inverter, as the
+	    # status output is not updated until the inverters provide power
+	    if [ -n "$SOLPWR" ] && [ "$SOLPWR" -eq "0" ]
+	    then
+		printState
+	    fi
 	    unset SOLPWR
 	    unset SMPWR
 	    break
